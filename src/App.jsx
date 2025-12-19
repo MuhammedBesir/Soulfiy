@@ -24,6 +24,8 @@ import {
   Loader2,
   X,
 } from "lucide-react";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
 
 // Environment variables'dan al - güvenli!
 const SECRET_PASSWORD = import.meta.env.VITE_SECRET_PASSWORD || "soulfiy2024";
@@ -414,19 +416,54 @@ export default function App() {
         minute: "2-digit",
       });
 
-      let report = "";
-      report += "=".repeat(62) + "\n";
-      report += "           SOULFIY - HAFTALIK GELISIM RAPORU\n";
-      report += "=".repeat(62) + "\n\n";
+      // PDF oluştur
+      const doc = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
 
-      // Haftalık özet
+      // Sıcak tonlama renkleri
+      const colors = {
+        primary: [242, 153, 74], // Warm orange #F2994A
+        secondary: [235, 87, 87], // Warm red #EB5757
+        accent: [247, 186, 42], // Golden yellow #F7BA2A
+        textDark: [51, 51, 51], // Dark gray
+        textLight: [102, 102, 102], // Medium gray
+        background: [255, 250, 245], // Warm white
+        lightOrange: [255, 237, 213], // Very light orange
+      };
+
+      let yPos = 20;
+
+      // Başlık - Gradient efekti için üst üste rectangles
+      doc.setFillColor(...colors.primary);
+      doc.rect(0, 0, 210, 50, "F");
+      doc.setFillColor(...colors.secondary);
+      doc.rect(0, 35, 210, 15, "F");
+
+      // Logo ve başlık
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(28);
+      doc.setFont(undefined, "bold");
+      doc.text("SOULFIY", 105, 20, { align: "center" });
+
+      doc.setFontSize(14);
+      doc.setFont(undefined, "normal");
+      doc.text("Haftalık Gelişim Raporu", 105, 30, { align: "center" });
+
+      doc.setFontSize(10);
+      doc.text(`${date} - ${time}`, 105, 42, { align: "center" });
+
+      yPos = 60;
+
+      // Haftalık özet kutusu
       const totalTasks = days.reduce(
         (sum, day) => sum + (day.tasks?.length || 0),
         0
       );
       const completedTasks = days.reduce(
-        (sum, day) =>
-          sum + (day.tasks?.filter((t) => t.completed).length || 0),
+        (sum, day) => sum + (day.tasks?.filter((t) => t.completed).length || 0),
         0
       );
       const completionRate =
@@ -439,84 +476,190 @@ export default function App() {
       );
       const avgProgress = (totalProgress / 7).toFixed(1);
 
-      report += "HAFTALIK OZET\n";
-      report += "-".repeat(62) + "\n";
-      report += "  Toplam Gorev        : " + totalTasks + " gorev\n";
-      report += "  Tamamlanan Gorev    : " + completedTasks + " gorev\n";
-      report += "  Tamamlanma Orani    : %" + completionRate + "\n";
-      report += "  Ortalama Ilerleme   : %" + avgProgress + "\n\n";
+      // Özet kartları
+      doc.setFillColor(...colors.lightOrange);
+      doc.roundedRect(15, yPos, 180, 35, 3, 3, "F");
+
+      doc.setTextColor(...colors.primary);
+      doc.setFontSize(16);
+      doc.setFont(undefined, "bold");
+      doc.text("Haftalık Özet", 20, yPos + 8);
+
+      doc.setTextColor(...colors.textDark);
+      doc.setFontSize(11);
+      doc.setFont(undefined, "normal");
+
+      const summaryData = [
+        [`Toplam Görev: ${totalTasks}`, `Tamamlanan: ${completedTasks}`],
+        [
+          `Tamamlanma Oranı: %${completionRate}`,
+          `Ortalama İlerleme: %${avgProgress}`,
+        ],
+      ];
+
+      let summaryY = yPos + 15;
+      summaryData.forEach((row) => {
+        doc.text(row[0], 20, summaryY);
+        doc.text(row[1], 110, summaryY);
+        summaryY += 7;
+      });
+
+      yPos += 45;
 
       // Günlük detaylar
-      report += "\nGUNLUK DETAYLAR\n";
-      report += "=".repeat(62) + "\n\n";
-
       days.forEach((day, index) => {
         if (!day || !day.name) return;
+
+        // Sayfa sonu kontrolü
+        if (yPos > 250) {
+          doc.addPage();
+          yPos = 20;
+        }
 
         const completedCount =
           day.tasks?.filter((t) => t.completed).length || 0;
         const taskCount = day.tasks?.length || 0;
 
-        report += day.name.toUpperCase() + "\n";
-        report += "-".repeat(62) + "\n";
-        report +=
-          "Ilerleme: %" +
-          (day.progress || 0) +
-          " | Gorevler: " +
-          completedCount +
-          "/" +
-          taskCount +
-          "\n";
+        // Gün başlığı
+        doc.setFillColor(...colors.accent);
+        doc.roundedRect(15, yPos, 180, 10, 2, 2, "F");
 
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(13);
+        doc.setFont(undefined, "bold");
+        doc.text(day.name.toUpperCase(), 20, yPos + 7);
+
+        doc.setFontSize(10);
+        doc.text(
+          `İlerleme: %${
+            day.progress || 0
+          } | Görevler: ${completedCount}/${taskCount}`,
+          165,
+          yPos + 7,
+          { align: "right" }
+        );
+
+        yPos += 15;
+
+        // Görevler
         if (day.tasks && day.tasks.length > 0) {
-          report += "\nGorevler:\n";
+          doc.setTextColor(...colors.textDark);
+          doc.setFontSize(11);
+          doc.setFont(undefined, "bold");
+          doc.text("Görevler:", 20, yPos);
+          yPos += 5;
+
+          doc.setFont(undefined, "normal");
+          doc.setFontSize(10);
+
           day.tasks.forEach((task, i) => {
-            const status = task.completed ? "[X]" : "[ ]";
-            report += "  " + status + " " + (i + 1) + ". " + task.text + "\n";
+            if (yPos > 270) {
+              doc.addPage();
+              yPos = 20;
+            }
+
+            const status = task.completed ? "✓" : "○";
+            const textColor = task.completed
+              ? colors.primary
+              : colors.textLight;
+            doc.setTextColor(...textColor);
+
+            const taskText = `${status} ${task.text}`;
+            const lines = doc.splitTextToSize(taskText, 170);
+
+            lines.forEach((line) => {
+              doc.text(line, 25, yPos);
+              yPos += 5;
+            });
           });
+
+          yPos += 3;
         }
 
+        // Notlar
         if (day.notes) {
-          report += "\nNotlar:\n  " + day.notes.replace(/\n/g, "\n  ") + "\n";
+          if (yPos > 260) {
+            doc.addPage();
+            yPos = 20;
+          }
+
+          doc.setTextColor(...colors.textDark);
+          doc.setFontSize(11);
+          doc.setFont(undefined, "bold");
+          doc.text("Notlar:", 20, yPos);
+          yPos += 5;
+
+          doc.setTextColor(...colors.textLight);
+          doc.setFontSize(10);
+          doc.setFont(undefined, "normal");
+
+          const noteLines = doc.splitTextToSize(day.notes, 170);
+          noteLines.forEach((line) => {
+            if (yPos > 275) {
+              doc.addPage();
+              yPos = 20;
+            }
+            doc.text(line, 25, yPos);
+            yPos += 5;
+          });
+
+          yPos += 3;
         }
 
-        report += "\n";
+        // AI Önerisi
+        if (aiSuggestions && aiSuggestions[day.name]) {
+          if (yPos > 240) {
+            doc.addPage();
+            yPos = 20;
+          }
+
+          doc.setFillColor(...colors.lightOrange);
+          doc.roundedRect(20, yPos, 170, 6, 1, 1, "F");
+
+          doc.setTextColor(...colors.secondary);
+          doc.setFontSize(10);
+          doc.setFont(undefined, "bold");
+          doc.text("🤖 AI Önerisi", 25, yPos + 4);
+          yPos += 10;
+
+          doc.setTextColor(...colors.textDark);
+          doc.setFontSize(9);
+          doc.setFont(undefined, "normal");
+
+          const aiLines = doc.splitTextToSize(aiSuggestions[day.name], 165);
+          aiLines.forEach((line) => {
+            if (yPos > 275) {
+              doc.addPage();
+              yPos = 20;
+            }
+            doc.text(line, 25, yPos);
+            yPos += 4;
+          });
+
+          yPos += 5;
+        }
+
+        yPos += 8;
       });
 
-      // AI Önerileri
-      if (aiSuggestions && Object.keys(aiSuggestions).length > 0) {
-        report += "\nAI ONERILERI\n";
-        report += "=".repeat(62) + "\n\n";
-        Object.entries(aiSuggestions).forEach(([dayName, suggestion]) => {
-          if (suggestion) {
-            report += dayName + ":\n" + suggestion + "\n\n";
-          }
+      // Footer - son sayfaya
+      const pageCount = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setTextColor(...colors.textLight);
+        doc.setFontSize(8);
+        doc.text(`Soulfiy - https://soulfiy.vercel.app`, 105, 287, {
+          align: "center",
         });
+        doc.text(`Sayfa ${i} / ${pageCount}`, 190, 287, { align: "right" });
       }
 
-      report += "\n" + "=".repeat(62) + "\n";
-      report += "Tarih: " + date + " - " + time + "\n";
-      report += "Soulfiy - Haftalik Gelisim Takip Uygulamasi\n";
-      report += "https://soulfiy.vercel.app\n";
-
-      // Dosyayı indir
-      const blob = new Blob([report], { type: "text/plain;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      const filename =
-        "soulfiy-rapor-" + now.toISOString().split("T")[0] + ".txt";
-      link.href = url;
-      link.download = filename;
-      link.style.display = "none";
-      document.body.appendChild(link);
-      link.click();
-      setTimeout(() => {
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      }, 100);
+      // PDF'i indir
+      const filename = `soulfiy-rapor-${now.toISOString().split("T")[0]}.pdf`;
+      doc.save(filename);
     } catch (error) {
-      console.error("Rapor olusturma hatasi:", error);
-      alert("Rapor olusturulurken bir hata olustu: " + error.message);
+      console.error("Rapor oluşturma hatası:", error);
+      alert("Rapor oluşturulurken bir hata oluştu: " + error.message);
     }
   };
 
@@ -1138,7 +1281,7 @@ export default function App() {
                     }`}
                   >
                     <Download className="w-4 h-4" />
-                    Haftalık Rapor İndir
+                    PDF Rapor İndir
                   </button>
 
                   <button
