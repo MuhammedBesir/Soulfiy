@@ -403,96 +403,120 @@ export default function App() {
   // Export data as beautiful formatted report
   const exportData = () => {
     try {
-      const date = new Date().toLocaleDateString("tr-TR", {
+      const now = new Date();
+      const date = now.toLocaleDateString("tr-TR", {
         year: "numeric",
         month: "long",
         day: "numeric",
       });
+      const time = now.toLocaleTimeString("tr-TR", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
 
-      let report = `╔═══════════════════════════════════════════════════════════╗
-║           SOULFIY - HAFTALIK GELİŞİM RAPORU              ║
-║                                                           ║
-╚═══════════════════════════════════════════════════════════╝
-
-`;
+      let report = "";
+      report += "=".repeat(62) + "\n";
+      report += "           SOULFIY - HAFTALIK GELISIM RAPORU\n";
+      report += "=".repeat(62) + "\n\n";
 
       // Haftalık özet
-      const totalTasks = days.reduce((sum, day) => sum + day.tasks.length, 0);
+      const totalTasks = days.reduce(
+        (sum, day) => sum + (day.tasks?.length || 0),
+        0
+      );
       const completedTasks = days.reduce(
-        (sum, day) => sum + day.tasks.filter((t) => t.completed).length,
+        (sum, day) =>
+          sum + (day.tasks?.filter((t) => t.completed).length || 0),
         0
       );
       const completionRate =
-        totalTasks > 0 ? ((completedTasks / totalTasks) * 100).toFixed(1) : 0;
+        totalTasks > 0
+          ? ((completedTasks / totalTasks) * 100).toFixed(1)
+          : "0.0";
       const totalProgress = days.reduce(
         (sum, day) => sum + (day.progress || 0),
         0
       );
       const avgProgress = (totalProgress / 7).toFixed(1);
 
-      report += `📊 HAFTALIK ÖZET\n`;
-      report += `${"=".repeat(60)}\n`;
-      report += `  🎯 Toplam Görev        : ${totalTasks} görev\n`;
-      report += `  ✅ Tamamlanan Görev    : ${completedTasks} görev\n`;
-      report += `  📈 Tamamlanma Oranı    : %${completionRate}\n`;
-      report += `  ⭐ Ortalama İlerleme   : %${avgProgress}\n\n`;
+      report += "HAFTALIK OZET\n";
+      report += "-".repeat(62) + "\n";
+      report += "  Toplam Gorev        : " + totalTasks + " gorev\n";
+      report += "  Tamamlanan Gorev    : " + completedTasks + " gorev\n";
+      report += "  Tamamlanma Orani    : %" + completionRate + "\n";
+      report += "  Ortalama Ilerleme   : %" + avgProgress + "\n\n";
 
       // Günlük detaylar
-      report += `\n📅 GÜNLÜK DETAYLAR\n`;
-      report += `${"=".repeat(60)}\n\n`;
+      report += "\nGUNLUK DETAYLAR\n";
+      report += "=".repeat(62) + "\n\n";
 
       days.forEach((day, index) => {
-        const dayEmojis = ["📆", "📅", "🗓️", "📋", "📌", "📍", "🎯"];
-        const completedCount = day.tasks.filter((t) => t.completed).length;
-        const taskCount = day.tasks.length;
+        if (!day || !day.name) return;
 
-        report += `${dayEmojis[index]} ${day.name.toUpperCase()}\n`;
-        report += `${"-".repeat(60)}\n`;
-        report += `İlerleme: %${day.progress || 0} | Görevler: ${completedCount}/${taskCount}\n`;
+        const completedCount =
+          day.tasks?.filter((t) => t.completed).length || 0;
+        const taskCount = day.tasks?.length || 0;
 
-        if (day.tasks.length > 0) {
-          report += `\n🎯 Görevler:\n`;
+        report += day.name.toUpperCase() + "\n";
+        report += "-".repeat(62) + "\n";
+        report +=
+          "Ilerleme: %" +
+          (day.progress || 0) +
+          " | Gorevler: " +
+          completedCount +
+          "/" +
+          taskCount +
+          "\n";
+
+        if (day.tasks && day.tasks.length > 0) {
+          report += "\nGorevler:\n";
           day.tasks.forEach((task, i) => {
-            const status = task.completed ? "✅" : "⬜";
-            report += `  ${status} ${i + 1}. ${task.text}\n`;
+            const status = task.completed ? "[X]" : "[ ]";
+            report += "  " + status + " " + (i + 1) + ". " + task.text + "\n";
           });
         }
 
         if (day.notes) {
-          report += `\n📝 Notlar:\n  ${day.notes.split("\n").join("\n  ")}\n`;
+          report += "\nNotlar:\n  " + day.notes.replace(/\n/g, "\n  ") + "\n";
         }
 
-        report += `\n`;
+        report += "\n";
       });
 
       // AI Önerileri
-      if (Object.keys(aiSuggestions).length > 0) {
-        report += `\n🤖 AI ÖNERİLERİ\n`;
-        report += `${"=".repeat(60)}\n\n`;
+      if (aiSuggestions && Object.keys(aiSuggestions).length > 0) {
+        report += "\nAI ONERILERI\n";
+        report += "=".repeat(62) + "\n\n";
         Object.entries(aiSuggestions).forEach(([dayName, suggestion]) => {
-          report += `${dayName}:\n${suggestion}\n\n`;
+          if (suggestion) {
+            report += dayName + ":\n" + suggestion + "\n\n";
+          }
         });
       }
 
-      report += `\n${"=".repeat(60)}\n`;
-      report += `Tarih: ${date} - ${new Date().toLocaleTimeString("tr-TR")}\n`;
-      report += `Soulfiy - Haftalık Gelişim Takip Uygulaması\n`;
-      report += `https://soulfiy.vercel.app\n`;
+      report += "\n" + "=".repeat(62) + "\n";
+      report += "Tarih: " + date + " - " + time + "\n";
+      report += "Soulfiy - Haftalik Gelisim Takip Uygulamasi\n";
+      report += "https://soulfiy.vercel.app\n";
 
       // Dosyayı indir
       const blob = new Blob([report], { type: "text/plain;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      const filename = `soulfiy-rapor-${new Date().toISOString().split("T")[0]}.txt`;
+      const filename =
+        "soulfiy-rapor-" + now.toISOString().split("T")[0] + ".txt";
       link.href = url;
       link.download = filename;
+      link.style.display = "none";
       document.body.appendChild(link);
       link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }, 100);
     } catch (error) {
-      console.error("Rapor oluşturma hatası:", error);
-      alert("Rapor oluşturulurken bir hata oluştu. Lütfen tekrar deneyin.");
+      console.error("Rapor olusturma hatasi:", error);
+      alert("Rapor olusturulurken bir hata olustu: " + error.message);
     }
   };
 
