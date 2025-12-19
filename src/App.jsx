@@ -402,96 +402,98 @@ export default function App() {
 
   // Export data as beautiful formatted report
   const exportData = () => {
-    const date = new Date().toLocaleDateString("tr-TR", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
+    try {
+      const date = new Date().toLocaleDateString("tr-TR", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
 
-    let report = `╔═══════════════════════════════════════════════════════════╗
+      let report = `╔═══════════════════════════════════════════════════════════╗
 ║           SOULFIY - HAFTALIK GELİŞİM RAPORU              ║
-║                   ${date.padStart(29).padEnd(42)}       ║
+║                                                           ║
 ╚═══════════════════════════════════════════════════════════╝
 
 `;
 
-    // Haftalık özet
-    const totalTasks = days.reduce((sum, day) => sum + day.tasks.length, 0);
-    const completedTasks = days.reduce(
-      (sum, day) => sum + day.tasks.filter((t) => t.completed).length,
-      0
-    );
-    const completionRate =
-      totalTasks > 0 ? ((completedTasks / totalTasks) * 100).toFixed(1) : 0;
-    const totalProgress = days.reduce(
-      (sum, day) => sum + (day.progress || 0),
-      0
-    );
-    const avgProgress = (totalProgress / 7).toFixed(1);
+      // Haftalık özet
+      const totalTasks = days.reduce((sum, day) => sum + day.tasks.length, 0);
+      const completedTasks = days.reduce(
+        (sum, day) => sum + day.tasks.filter((t) => t.completed).length,
+        0
+      );
+      const completionRate =
+        totalTasks > 0 ? ((completedTasks / totalTasks) * 100).toFixed(1) : 0;
+      const totalProgress = days.reduce(
+        (sum, day) => sum + (day.progress || 0),
+        0
+      );
+      const avgProgress = (totalProgress / 7).toFixed(1);
 
-    report += `📊 HAFTALIK ÖZET
-${"═".repeat(60)}
-`;
-    report += `  🎯 Toplam Görev        : ${totalTasks} görev\n`;
-    report += `  ✅ Tamamlanan Görev    : ${completedTasks} görev\n`;
-    report += `  📈 Tamamlanma Oranı    : %${completionRate}\n`;
-    report += `  ⭐ Ortalama İlerleme   : %${avgProgress}\n\n`;
+      report += `📊 HAFTALIK ÖZET\n`;
+      report += `${"=".repeat(60)}\n`;
+      report += `  🎯 Toplam Görev        : ${totalTasks} görev\n`;
+      report += `  ✅ Tamamlanan Görev    : ${completedTasks} görev\n`;
+      report += `  📈 Tamamlanma Oranı    : %${completionRate}\n`;
+      report += `  ⭐ Ortalama İlerleme   : %${avgProgress}\n\n`;
 
-    // Günlük detaylar
-    report += `\n📅 GÜNLÜK DETAYLAR\n${"═".repeat(60)}\n\n`;
+      // Günlük detaylar
+      report += `\n📅 GÜNLÜK DETAYLAR\n`;
+      report += `${"=".repeat(60)}\n\n`;
 
-    days.forEach((day, index) => {
-      const dayEmojis = ["📆", "📅", "🗓️", "📋", "📌", "📍", "🎯"];
-      const completedCount = day.tasks.filter((t) => t.completed).length;
-      const taskCount = day.tasks.length;
+      days.forEach((day, index) => {
+        const dayEmojis = ["📆", "📅", "🗓️", "📋", "📌", "📍", "🎯"];
+        const completedCount = day.tasks.filter((t) => t.completed).length;
+        const taskCount = day.tasks.length;
 
-      report += `${dayEmojis[index]} ${day.name.toUpperCase()}\n`;
-      report += `${"-".repeat(60)}\n`;
-      report += `İlerleme: %${
-        day.progress || 0
-      } | Görevler: ${completedCount}/${taskCount}\n`;
+        report += `${dayEmojis[index]} ${day.name.toUpperCase()}\n`;
+        report += `${"-".repeat(60)}\n`;
+        report += `İlerleme: %${day.progress || 0} | Görevler: ${completedCount}/${taskCount}\n`;
 
-      if (day.tasks.length > 0) {
-        report += `\n🎯 Görevler:\n`;
-        day.tasks.forEach((task, i) => {
-          const status = task.completed ? "✅" : "⬜";
-          report += `  ${status} ${i + 1}. ${task.text}\n`;
+        if (day.tasks.length > 0) {
+          report += `\n🎯 Görevler:\n`;
+          day.tasks.forEach((task, i) => {
+            const status = task.completed ? "✅" : "⬜";
+            report += `  ${status} ${i + 1}. ${task.text}\n`;
+          });
+        }
+
+        if (day.notes) {
+          report += `\n📝 Notlar:\n  ${day.notes.split("\n").join("\n  ")}\n`;
+        }
+
+        report += `\n`;
+      });
+
+      // AI Önerileri
+      if (Object.keys(aiSuggestions).length > 0) {
+        report += `\n🤖 AI ÖNERİLERİ\n`;
+        report += `${"=".repeat(60)}\n\n`;
+        Object.entries(aiSuggestions).forEach(([dayName, suggestion]) => {
+          report += `${dayName}:\n${suggestion}\n\n`;
         });
       }
 
-      if (day.notes) {
-        report += `\n📝 Notlar:\n  ${day.notes.split("\n").join("\n  ")}\n`;
-      }
+      report += `\n${"=".repeat(60)}\n`;
+      report += `Tarih: ${date} - ${new Date().toLocaleTimeString("tr-TR")}\n`;
+      report += `Soulfiy - Haftalık Gelişim Takip Uygulaması\n`;
+      report += `https://soulfiy.vercel.app\n`;
 
-      report += `\n`;
-    });
-
-    // AI Önerileri
-    if (Object.keys(aiSuggestions).length > 0) {
-      report += `\n🤖 AI ÖNERİLERİ\n${"═".repeat(60)}\n\n`;
-      Object.entries(aiSuggestions).forEach(([dayName, suggestion]) => {
-        report += `${dayName}:\n${suggestion}\n\n`;
-      });
+      // Dosyayı indir
+      const blob = new Blob([report], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const filename = `soulfiy-rapor-${new Date().toISOString().split("T")[0]}.txt`;
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Rapor oluşturma hatası:", error);
+      alert("Rapor oluşturulurken bir hata oluştu. Lütfen tekrar deneyin.");
     }
-
-    report += `\n${"═".repeat(60)}\n`;
-    report += `Oluşturulma Tarihi: ${new Date().toLocaleString("tr-TR")}\n`;
-    report += `Soulfiy - Haftalık Gelişim Takip Uygulaması\n`;
-    report += `https://soulfiy.vercel.app\n`;
-
-    // Dosyayı indir
-    const blob = new Blob([report], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    const filename = `soulfiy-rapor-${
-      new Date().toISOString().split("T")[0]
-    }.txt`;
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
   };
 
   // Login Screen
