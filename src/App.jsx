@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import {
   CheckCircle,
   Circle,
@@ -256,7 +256,6 @@ Kullanıcıya kısa, motive edici ve pratik bir öneri ver. Türkçe yaz, 2-3 c�
 };
 
 export default function App() {
-  const fileInputRef = useRef(null);
   const [showPassword, setShowPassword] = useState(false);
   const [password, setPassword] = useState("");
   const [aiSuggestions, setAiSuggestions] = useState(() => {
@@ -401,64 +400,98 @@ export default function App() {
     });
   };
 
-  // Export data as JSON file
+  // Export data as beautiful formatted report
   const exportData = () => {
-    const exportPackage = {
-      version: "1.0",
-      exportDate: new Date().toISOString(),
-      days: days,
-      aiSuggestions: aiSuggestions,
-    };
-    const dataStr = JSON.stringify(exportPackage, null, 2);
-    const blob = new Blob([dataStr], { type: "application/json" });
+    const date = new Date().toLocaleDateString("tr-TR", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+
+    let report = `╔═══════════════════════════════════════════════════════════╗
+║           SOULFIY - HAFTALIK GELİŞİM RAPORU              ║
+║                   ${date.padStart(29).padEnd(42)}       ║
+╚═══════════════════════════════════════════════════════════╝
+
+`;
+
+    // Haftalık özet
+    const totalTasks = days.reduce((sum, day) => sum + day.tasks.length, 0);
+    const completedTasks = days.reduce(
+      (sum, day) => sum + day.tasks.filter((t) => t.completed).length,
+      0
+    );
+    const completionRate =
+      totalTasks > 0 ? ((completedTasks / totalTasks) * 100).toFixed(1) : 0;
+    const totalProgress = days.reduce(
+      (sum, day) => sum + (day.progress || 0),
+      0
+    );
+    const avgProgress = (totalProgress / 7).toFixed(1);
+
+    report += `📊 HAFTALIK ÖZET
+${"═".repeat(60)}
+`;
+    report += `  🎯 Toplam Görev        : ${totalTasks} görev\n`;
+    report += `  ✅ Tamamlanan Görev    : ${completedTasks} görev\n`;
+    report += `  📈 Tamamlanma Oranı    : %${completionRate}\n`;
+    report += `  ⭐ Ortalama İlerleme   : %${avgProgress}\n\n`;
+
+    // Günlük detaylar
+    report += `\n📅 GÜNLÜK DETAYLAR\n${"═".repeat(60)}\n\n`;
+
+    days.forEach((day, index) => {
+      const dayEmojis = ["📆", "📅", "🗓️", "📋", "📌", "📍", "🎯"];
+      const completedCount = day.tasks.filter((t) => t.completed).length;
+      const taskCount = day.tasks.length;
+
+      report += `${dayEmojis[index]} ${day.name.toUpperCase()}\n`;
+      report += `${"-".repeat(60)}\n`;
+      report += `İlerleme: %${
+        day.progress || 0
+      } | Görevler: ${completedCount}/${taskCount}\n`;
+
+      if (day.tasks.length > 0) {
+        report += `\n🎯 Görevler:\n`;
+        day.tasks.forEach((task, i) => {
+          const status = task.completed ? "✅" : "⬜";
+          report += `  ${status} ${i + 1}. ${task.text}\n`;
+        });
+      }
+
+      if (day.notes) {
+        report += `\n📝 Notlar:\n  ${day.notes.split("\n").join("\n  ")}\n`;
+      }
+
+      report += `\n`;
+    });
+
+    // AI Önerileri
+    if (Object.keys(aiSuggestions).length > 0) {
+      report += `\n🤖 AI ÖNERİLERİ\n${"═".repeat(60)}\n\n`;
+      Object.entries(aiSuggestions).forEach(([dayName, suggestion]) => {
+        report += `${dayName}:\n${suggestion}\n\n`;
+      });
+    }
+
+    report += `\n${"═".repeat(60)}\n`;
+    report += `Oluşturulma Tarihi: ${new Date().toLocaleString("tr-TR")}\n`;
+    report += `Soulfiy - Haftalık Gelişim Takip Uygulaması\n`;
+    report += `https://soulfiy.vercel.app\n`;
+
+    // Dosyayı indir
+    const blob = new Blob([report], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    const date = new Date().toISOString().split("T")[0];
+    const filename = `soulfiy-rapor-${
+      new Date().toISOString().split("T")[0]
+    }.txt`;
     link.href = url;
-    link.download = `haftalik-takip-${date}.json`;
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-  };
-
-  // Import data from JSON file
-  const importData = (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const imported = JSON.parse(e.target.result);
-
-        // Eski format (sadece days array)
-        if (Array.isArray(imported) && imported.length === 7) {
-          setDays(imported);
-          alert("Veriler başarıyla yüklendi!");
-          return;
-        }
-
-        // Yeni format (days + AI suggestions)
-        if (
-          imported.days &&
-          Array.isArray(imported.days) &&
-          imported.days.length === 7
-        ) {
-          setDays(imported.days);
-          if (imported.aiSuggestions) {
-            setAiSuggestions(imported.aiSuggestions);
-          }
-          alert("Veriler ve AI önerileri başarıyla yüklendi!");
-        } else {
-          alert("Geçersiz dosya formatı!");
-        }
-      } catch (err) {
-        alert("Dosya okunamadı: " + err.message);
-      }
-    };
-    reader.readAsText(file);
-    event.target.value = "";
   };
 
   // Login Screen
@@ -570,15 +603,6 @@ export default function App() {
           : "bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50"
       }`}
     >
-      {/* Hidden file input for import */}
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={importData}
-        accept=".json"
-        className="hidden"
-      />
-
       {/* Content */}
       <div className="min-h-screen p-4 sm:p-6 lg:p-8">
         <div className="max-w-6xl mx-auto">
@@ -1088,19 +1112,7 @@ export default function App() {
                     }`}
                   >
                     <Download className="w-4 h-4" />
-                    Dışa Aktar
-                  </button>
-
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border transition-all shadow-sm ${
-                      darkMode
-                        ? "bg-orange-900/30 text-orange-300 border-orange-700/50 hover:bg-orange-900/50"
-                        : "bg-gradient-to-r from-orange-50 to-rose-50 text-orange-700 border-orange-200 hover:from-orange-100 hover:to-rose-100"
-                    }`}
-                  >
-                    <Upload className="w-4 h-4" />
-                    İçe Aktar
+                    Haftalık Rapor İndir
                   </button>
 
                   <button
