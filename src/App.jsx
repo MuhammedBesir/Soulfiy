@@ -411,53 +411,47 @@ export default function App() {
         month: "long",
         day: "numeric",
       });
-      const time = now.toLocaleTimeString("tr-TR", {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
 
-      // PDF oluştur
       const doc = new jsPDF({
         orientation: "portrait",
         unit: "mm",
         format: "a4",
       });
 
-      // Sıcak tonlama renkleri
-      const colors = {
-        primary: [242, 153, 74], // Warm orange #F2994A
-        secondary: [235, 87, 87], // Warm red #EB5757
-        accent: [247, 186, 42], // Golden yellow #F7BA2A
-        textDark: [51, 51, 51], // Dark gray
-        textLight: [102, 102, 102], // Medium gray
-        background: [255, 250, 245], // Warm white
-        lightOrange: [255, 237, 213], // Very light orange
-      };
+      // Modern sıcak renkler
+      const orange = [242, 153, 74];
+      const darkOrange = [230, 126, 34];
+      const lightCream = [255, 248, 240];
+      const darkText = [44, 62, 80];
+      const gray = [127, 140, 141];
 
-      let yPos = 20;
+      let y = 20;
+      const leftMargin = 20;
+      const rightMargin = 190;
+      const pageWidth = 210;
 
-      // Başlık - Gradient efekti için üst üste rectangles
-      doc.setFillColor(...colors.primary);
-      doc.rect(0, 0, 210, 50, "F");
-      doc.setFillColor(...colors.secondary);
-      doc.rect(0, 35, 210, 15, "F");
+      // Başlık bölümü - Turuncu gradient arkaplan
+      doc.setFillColor(orange[0], orange[1], orange[2]);
+      doc.rect(0, 0, pageWidth, 45, "F");
 
-      // Logo ve başlık
+      // Beyaz başlık
       doc.setTextColor(255, 255, 255);
-      doc.setFontSize(28);
-      doc.setFont(undefined, "bold");
-      doc.text("SOULFIY", 105, 20, { align: "center" });
+      doc.setFontSize(32);
+      doc.setFont("helvetica", "bold");
+      doc.text("SOULFIY", pageWidth / 2, 22, { align: "center" });
 
       doc.setFontSize(14);
-      doc.setFont(undefined, "normal");
-      doc.text("Haftalık Gelişim Raporu", 105, 30, { align: "center" });
+      doc.setFont("helvetica", "normal");
+      doc.text("Haftalik Gelisim Raporu", pageWidth / 2, 32, {
+        align: "center",
+      });
 
       doc.setFontSize(10);
-      doc.text(`${date} - ${time}`, 105, 42, { align: "center" });
+      doc.text(date, pageWidth / 2, 39, { align: "center" });
 
-      yPos = 60;
+      y = 55;
 
-      // Haftalık özet kutusu
+      // Özet kartı - Krem renkli kutu
       const totalTasks = days.reduce(
         (sum, day) => sum + (day.tasks?.length || 0),
         0
@@ -467,199 +461,216 @@ export default function App() {
         0
       );
       const completionRate =
-        totalTasks > 0
-          ? ((completedTasks / totalTasks) * 100).toFixed(1)
-          : "0.0";
+        totalTasks > 0 ? ((completedTasks / totalTasks) * 100).toFixed(0) : 0;
       const totalProgress = days.reduce(
         (sum, day) => sum + (day.progress || 0),
         0
       );
-      const avgProgress = (totalProgress / 7).toFixed(1);
+      const avgProgress = (totalProgress / 7).toFixed(0);
 
-      // Özet kartları
-      doc.setFillColor(...colors.lightOrange);
-      doc.roundedRect(15, yPos, 180, 35, 3, 3, "F");
+      doc.setFillColor(lightCream[0], lightCream[1], lightCream[2]);
+      doc.roundedRect(leftMargin, y, 170, 40, 3, 3, "F");
 
-      doc.setTextColor(...colors.primary);
+      // Özet başlık
+      doc.setTextColor(darkOrange[0], darkOrange[1], darkOrange[2]);
       doc.setFontSize(16);
-      doc.setFont(undefined, "bold");
-      doc.text("Haftalık Özet", 20, yPos + 8);
+      doc.setFont("helvetica", "bold");
+      doc.text("HAFTALIK OZET", leftMargin + 5, y + 10);
 
-      doc.setTextColor(...colors.textDark);
+      // Özet istatistikleri - 2 sütun
+      doc.setTextColor(darkText[0], darkText[1], darkText[2]);
       doc.setFontSize(11);
-      doc.setFont(undefined, "normal");
+      doc.setFont("helvetica", "normal");
 
-      const summaryData = [
-        [`Toplam Görev: ${totalTasks}`, `Tamamlanan: ${completedTasks}`],
-        [
-          `Tamamlanma Oranı: %${completionRate}`,
-          `Ortalama İlerleme: %${avgProgress}`,
-        ],
-      ];
+      const col1X = leftMargin + 5;
+      const col2X = leftMargin + 90;
+      let statsY = y + 20;
 
-      let summaryY = yPos + 15;
-      summaryData.forEach((row) => {
-        doc.text(row[0], 20, summaryY);
-        doc.text(row[1], 110, summaryY);
-        summaryY += 7;
-      });
+      doc.setFont("helvetica", "bold");
+      doc.text("Toplam Gorev:", col1X, statsY);
+      doc.setFont("helvetica", "normal");
+      doc.text(String(totalTasks), col1X + 40, statsY);
 
-      yPos += 45;
+      doc.setFont("helvetica", "bold");
+      doc.text("Tamamlanan:", col2X, statsY);
+      doc.setFont("helvetica", "normal");
+      doc.text(String(completedTasks), col2X + 40, statsY);
 
-      // Günlük detaylar
+      statsY += 8;
+
+      doc.setFont("helvetica", "bold");
+      doc.text("Basari Orani:", col1X, statsY);
+      doc.setFont("helvetica", "normal");
+      doc.text("%" + completionRate, col1X + 40, statsY);
+
+      doc.setFont("helvetica", "bold");
+      doc.text("Ort. Ilerleme:", col2X, statsY);
+      doc.setFont("helvetica", "normal");
+      doc.text("%" + avgProgress, col2X + 40, statsY);
+
+      y += 50;
+
+      // Her gün için detaylar
       days.forEach((day, index) => {
         if (!day || !day.name) return;
 
-        // Sayfa sonu kontrolü
-        if (yPos > 250) {
+        // Sayfa kontrolü
+        if (y > 250) {
           doc.addPage();
-          yPos = 20;
+          y = 20;
         }
 
         const completedCount =
           day.tasks?.filter((t) => t.completed).length || 0;
         const taskCount = day.tasks?.length || 0;
 
-        // Gün başlığı
-        doc.setFillColor(...colors.accent);
-        doc.roundedRect(15, yPos, 180, 10, 2, 2, "F");
+        // Gün başlık çubuğu - Turuncu
+        doc.setFillColor(orange[0], orange[1], orange[2]);
+        doc.roundedRect(leftMargin, y, 170, 12, 2, 2, "F");
 
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(13);
-        doc.setFont(undefined, "bold");
-        doc.text(day.name.toUpperCase(), 20, yPos + 7);
+        doc.setFont("helvetica", "bold");
+        doc.text(day.name.toUpperCase(), leftMargin + 5, y + 8);
 
-        doc.setFontSize(10);
-        doc.text(
-          `İlerleme: %${
-            day.progress || 0
-          } | Görevler: ${completedCount}/${taskCount}`,
-          165,
-          yPos + 7,
-          { align: "right" }
-        );
+        // İlerleme bilgisi sağda
+        const progressText =
+          "%" + (day.progress || 0) + " | " + completedCount + "/" + taskCount;
+        doc.setFontSize(11);
+        doc.text(progressText, rightMargin - 5, y + 8, { align: "right" });
 
-        yPos += 15;
+        y += 17;
 
         // Görevler
         if (day.tasks && day.tasks.length > 0) {
-          doc.setTextColor(...colors.textDark);
+          doc.setTextColor(darkText[0], darkText[1], darkText[2]);
           doc.setFontSize(11);
-          doc.setFont(undefined, "bold");
-          doc.text("Görevler:", 20, yPos);
-          yPos += 5;
+          doc.setFont("helvetica", "bold");
+          doc.text("Gorevler:", leftMargin + 5, y);
+          y += 6;
 
-          doc.setFont(undefined, "normal");
           doc.setFontSize(10);
+          doc.setFont("helvetica", "normal");
 
-          day.tasks.forEach((task, i) => {
-            if (yPos > 270) {
+          day.tasks.forEach((task) => {
+            if (y > 275) {
               doc.addPage();
-              yPos = 20;
+              y = 20;
             }
 
-            const status = task.completed ? "✓" : "○";
-            const textColor = task.completed
-              ? colors.primary
-              : colors.textLight;
-            doc.setTextColor(...textColor);
+            const checkbox = task.completed ? "[X]" : "[ ]";
+            const taskColor = task.completed ? orange : gray;
+            doc.setTextColor(taskColor[0], taskColor[1], taskColor[2]);
 
-            const taskText = `${status} ${task.text}`;
-            const lines = doc.splitTextToSize(taskText, 170);
+            const maxWidth = 155;
+            const taskLines = doc.splitTextToSize(
+              checkbox + " " + task.text,
+              maxWidth
+            );
 
-            lines.forEach((line) => {
-              doc.text(line, 25, yPos);
-              yPos += 5;
+            taskLines.forEach((line) => {
+              if (y > 275) {
+                doc.addPage();
+                y = 20;
+              }
+              doc.text(line, leftMargin + 10, y);
+              y += 5;
             });
           });
 
-          yPos += 3;
+          y += 2;
         }
 
         // Notlar
-        if (day.notes) {
-          if (yPos > 260) {
+        if (day.notes && day.notes.trim()) {
+          if (y > 265) {
             doc.addPage();
-            yPos = 20;
+            y = 20;
           }
 
-          doc.setTextColor(...colors.textDark);
+          doc.setTextColor(darkText[0], darkText[1], darkText[2]);
           doc.setFontSize(11);
-          doc.setFont(undefined, "bold");
-          doc.text("Notlar:", 20, yPos);
-          yPos += 5;
+          doc.setFont("helvetica", "bold");
+          doc.text("Notlar:", leftMargin + 5, y);
+          y += 6;
 
-          doc.setTextColor(...colors.textLight);
+          doc.setTextColor(gray[0], gray[1], gray[2]);
           doc.setFontSize(10);
-          doc.setFont(undefined, "normal");
+          doc.setFont("helvetica", "normal");
 
-          const noteLines = doc.splitTextToSize(day.notes, 170);
+          const noteLines = doc.splitTextToSize(day.notes, 155);
           noteLines.forEach((line) => {
-            if (yPos > 275) {
+            if (y > 275) {
               doc.addPage();
-              yPos = 20;
+              y = 20;
             }
-            doc.text(line, 25, yPos);
-            yPos += 5;
+            doc.text(line, leftMargin + 10, y);
+            y += 5;
           });
 
-          yPos += 3;
+          y += 2;
         }
 
         // AI Önerisi
         if (aiSuggestions && aiSuggestions[day.name]) {
-          if (yPos > 240) {
+          if (y > 245) {
             doc.addPage();
-            yPos = 20;
+            y = 20;
           }
 
-          doc.setFillColor(...colors.lightOrange);
-          doc.roundedRect(20, yPos, 170, 6, 1, 1, "F");
+          // AI kutusu - açık turuncu arka plan
+          const aiBoxHeight = 8;
+          doc.setFillColor(255, 245, 235);
+          doc.roundedRect(leftMargin + 5, y - 2, 160, aiBoxHeight, 2, 2, "F");
 
-          doc.setTextColor(...colors.secondary);
+          doc.setTextColor(darkOrange[0], darkOrange[1], darkOrange[2]);
           doc.setFontSize(10);
-          doc.setFont(undefined, "bold");
-          doc.text("🤖 AI Önerisi", 25, yPos + 4);
-          yPos += 10;
+          doc.setFont("helvetica", "bold");
+          doc.text("AI Onerisi", leftMargin + 10, y + 4);
+          y += 10;
 
-          doc.setTextColor(...colors.textDark);
+          doc.setTextColor(darkText[0], darkText[1], darkText[2]);
           doc.setFontSize(9);
-          doc.setFont(undefined, "normal");
+          doc.setFont("helvetica", "italic");
 
-          const aiLines = doc.splitTextToSize(aiSuggestions[day.name], 165);
+          const aiLines = doc.splitTextToSize(aiSuggestions[day.name], 150);
           aiLines.forEach((line) => {
-            if (yPos > 275) {
+            if (y > 275) {
               doc.addPage();
-              yPos = 20;
+              y = 20;
             }
-            doc.text(line, 25, yPos);
-            yPos += 4;
+            doc.text(line, leftMargin + 10, y);
+            y += 4;
           });
 
-          yPos += 5;
+          y += 3;
         }
 
-        yPos += 8;
+        y += 5;
       });
 
-      // Footer - son sayfaya
+      // Footer - tüm sayfalara
       const pageCount = doc.internal.getNumberOfPages();
       for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
-        doc.setTextColor(...colors.textLight);
+        doc.setTextColor(gray[0], gray[1], gray[2]);
         doc.setFontSize(8);
-        doc.text(`Soulfiy - https://soulfiy.vercel.app`, 105, 287, {
+        doc.setFont("helvetica", "normal");
+        doc.text("Soulfiy - soulfiy.vercel.app", pageWidth / 2, 287, {
           align: "center",
         });
-        doc.text(`Sayfa ${i} / ${pageCount}`, 190, 287, { align: "right" });
+        doc.text("Sayfa " + i + " / " + pageCount, rightMargin - 5, 287, {
+          align: "right",
+        });
       }
 
       // PDF'i indir
-      const filename = `soulfiy-rapor-${now.toISOString().split("T")[0]}.pdf`;
+      const filename =
+        "soulfiy-rapor-" + now.toISOString().split("T")[0] + ".pdf";
       doc.save(filename);
     } catch (error) {
-      console.error("Rapor oluşturma hatası:", error);
-      alert("Rapor oluşturulurken bir hata oluştu: " + error.message);
+      console.error("PDF olusturma hatasi:", error);
+      alert("PDF olusturulurken bir hata olustu: " + error.message);
     }
   };
 
