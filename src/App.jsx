@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 
 // Environment variables'dan al - güvenli!
-const SECRET_PASSWORD = import.meta.env.VITE_SECRET_PASSWORD || "ruhfy2024";
+const SECRET_PASSWORD = import.meta.env.VITE_SECRET_PASSWORD || "soulfiy2024";
 const AI_API_KEY = import.meta.env.VITE_AI_API_KEY || "";
 
 /**
@@ -493,7 +493,7 @@ export default function App() {
                 darkMode ? "text-white" : "text-slate-800"
               }`}
             >
-              Ruhfiy
+              Soulfiy
             </h1>
             <p
               className={`text-sm mt-1 ${
@@ -607,7 +607,7 @@ export default function App() {
                         darkMode ? "text-white" : "text-slate-800"
                       }`}
                     >
-                      Ruhfiy
+                      Soulfiy
                     </h1>
                     <p
                       className={`text-sm mt-0.5 ${
