@@ -412,6 +412,9 @@ export default function App() {
         day: "numeric",
       });
 
+      console.log("Exporting data, days:", days);
+      console.log("Days length:", days.length);
+      
       const doc = new jsPDF({
         orientation: "portrait",
         unit: "mm",
@@ -453,13 +456,26 @@ export default function App() {
 
       // Özet kartı - Krem renkli kutu
       const totalTasks = days.reduce(
-        (sum, day) => sum + (day.tasks?.length || 0),
+        (sum, day) => {
+          const taskCount = day.tasks?.length || 0;
+          console.log(`Day ${day.name}: ${taskCount} tasks`);
+          return sum + taskCount;
+        },
         0
       );
+      
       const completedTasks = days.reduce(
-        (sum, day) => sum + (day.tasks?.filter((t) => t.completed).length || 0),
+        (sum, day) => {
+          const completed = day.tasks?.filter((t) => t.completed).length || 0;
+          console.log(`Day ${day.name}: ${completed} completed tasks`);
+          return sum + completed;
+        },
         0
       );
+      
+      console.log("Total tasks:", totalTasks);
+      console.log("Completed tasks:", completedTasks);
+      
       const completionRate =
         totalTasks > 0 ? ((completedTasks / totalTasks) * 100).toFixed(0) : 0;
       const totalProgress = days.reduce(
