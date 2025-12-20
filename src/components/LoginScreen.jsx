@@ -1,5 +1,15 @@
 import React, { useState } from "react";
-import { Lock, Eye, EyeOff, Sun, Moon, UserPlus, LogIn } from "lucide-react";
+import {
+  Lock,
+  Eye,
+  EyeOff,
+  Sun,
+  Moon,
+  UserPlus,
+  LogIn,
+  Mail,
+  Loader2,
+} from "lucide-react";
 
 export default function LoginScreen({
   darkMode,
@@ -10,8 +20,9 @@ export default function LoginScreen({
   setShowPassword,
   handleLogin,
   handleRegister,
-  username,
-  setUsername,
+  email,
+  setEmail,
+  loading,
 }) {
   const [isLoginMode, setIsLoginMode] = useState(true);
 
@@ -91,22 +102,30 @@ export default function LoginScreen({
                 darkMode ? "text-slate-300" : "text-slate-700"
               }`}
             >
-              Kullanıcı Adı
+              Email
             </label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="Kullanıcı adınız"
-              required
-              className={`w-full px-4 py-3 rounded-lg border ${
-                darkMode
-                  ? "bg-slate-700 border-slate-600 text-white placeholder-slate-400"
-                  : "bg-white border-orange-200 text-slate-900 placeholder-slate-400"
-              } focus:outline-none focus:ring-2 ${
-                darkMode ? "focus:ring-amber-500" : "focus:ring-orange-500"
-              }`}
-            />
+            <div className="relative">
+              <Mail
+                className={`absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 ${
+                  darkMode ? "text-slate-400" : "text-slate-500"
+                }`}
+              />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="ornek@email.com"
+                required
+                disabled={loading}
+                className={`w-full pl-11 pr-4 py-3 rounded-lg border ${
+                  darkMode
+                    ? "bg-slate-700 border-slate-600 text-white placeholder-slate-400"
+                    : "bg-white border-orange-200 text-slate-900 placeholder-slate-400"
+                } focus:outline-none focus:ring-2 ${
+                  darkMode ? "focus:ring-amber-500" : "focus:ring-orange-500"
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
+              />
+            </div>
           </div>
 
           <div>
@@ -124,23 +143,25 @@ export default function LoginScreen({
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Şifrenizi girin"
                 required
-                minLength="4"
+                minLength="6"
+                disabled={loading}
                 className={`w-full px-4 py-3 rounded-lg border ${
                   darkMode
                     ? "bg-slate-700 border-slate-600 text-white placeholder-slate-400"
                     : "bg-white border-orange-200 text-slate-900 placeholder-slate-400"
                 } focus:outline-none focus:ring-2 ${
                   darkMode ? "focus:ring-amber-500" : "focus:ring-orange-500"
-                }`}
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
+                disabled={loading}
                 className={`absolute right-3 top-1/2 -translate-y-1/2 ${
                   darkMode
                     ? "text-slate-400 hover:text-slate-300"
                     : "text-slate-500 hover:text-slate-700"
-                }`}
+                } disabled:opacity-50`}
               >
                 {showPassword ? (
                   <EyeOff className="w-5 h-5" />
@@ -153,13 +174,19 @@ export default function LoginScreen({
 
           <button
             type="submit"
+            disabled={loading}
             className={`w-full py-3 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${
               darkMode
                 ? "bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white"
                 : "bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white"
-            } shadow-lg hover:shadow-xl`}
+            } shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed`}
           >
-            {isLoginMode ? (
+            {loading ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                {isLoginMode ? "Giriş yapılıyor..." : "Kayıt olunuyor..."}
+              </>
+            ) : isLoginMode ? (
               <>
                 <LogIn className="w-5 h-5" />
                 Giriş Yap

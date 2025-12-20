@@ -13,9 +13,16 @@ import Header from "./components/Header";
 import DayCard from "./components/DayCard";
 import Footer from "./components/Footer";
 import { exportToPDF } from "./utils/pdfExport";
+import { auth, db } from "./firebase";
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+} from "firebase/auth";
+import { doc, setDoc, getDoc, updateDoc } from "firebase/firestore";
 
 // Environment variables'dan al - güvenli!
-const SECRET_PASSWORD = import.meta.env.VITE_SECRET_PASSWORD || "soulfiy2024";
 const AI_API_KEY = import.meta.env.VITE_AI_API_KEY || "";
 
 /**
@@ -247,143 +254,175 @@ Kullanıcıya kısa, motive edici ve pratik bir öneri ver. Türkçe yaz, 2-3 c�
 export default function App() {
   const [showPassword, setShowPassword] = useState(false);
   const [password, setPassword] = useState("");
-  const [username, setUsername] = useState("");
-  const [currentUser, setCurrentUser] = useState(() => {
-    return localStorage.getItem("soulfiy_current_user") || null;
-  });
-  const [aiSuggestions, setAiSuggestions] = useState(() => {
-    // Kullanıcıya özel AI önerilerini yükle
-    const user = localStorage.getItem("soulfiy_current_user");
-    if (!user) return {};
-    try {
-      const saved = localStorage.getItem(`soulfiy_ai_${user}`);
-      return saved ? JSON.parse(saved) : {};
-    } catch {
-      return {};
-    }
-  });
+  const [email, setEmail] = useState("");
+  const [currentUser, setCurrentUser] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState({});
   const [loadingAI, setLoadingAI] = useState({});
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return localStorage.getItem("soulfiy_current_user") !== null;
-  });
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [darkMode, setDarkMode] = useState(() => {
     try {
-      return localStorage.getItem(DARK_MODE_KEY) === "true";
+      return localStorage.getItem("soulfiy_darkMode") === "true";
     } catch {
       return false;
     }
   });
 
-  const [days, setDays] = useState(() => {
-    const user = localStorage.getItem("soulfiy_current_user");
-    if (!user) return INITIAL_DATA;
-    try {
-      const raw = localStorage.getItem(`soulfiy_data_${user}`);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length === INITIAL_DATA.length)
-          return parsed;
-      }
-    } catch (e) {}
-    return INITIAL_DATA;
-  });
+  const [days, setDays] = useState(INITIAL_DATA);
 
+  // Firebase auth state listener
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(days));
-    } catch (e) {
-      console.error("Failed saving to localStorage", e);
-    }
-  }, [days]);
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        setCurrentUser(user);
+        setIsAuthenticated(true);
 
-  // AI önerilerini localStorage'a kaydet
+        // Firestore'dan kullanıcı verilerini yükle
+        try {
+          const userDoc = await getDoc(doc(db, "users", user.uid));
+          if (userDoc.exists()) {
+            const data = userDoc.data();
+            setDays(data.days || INITIAL_DATA);
+            setAiSuggestions(data.aiSuggestions || {});
+          }
+        } catch (error) {
+          console.error("Veri yükleme hatası:", error);
+        }
+      } else {
+        setCurrentUser(null);
+        setIsAuthenticated(false);
+        setDays(INITIAL_DATA);
+        setAiSuggestions({});
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Days değiştiğinde Firestore'a kaydet
   useEffect(() => {
     if (!currentUser) return;
-    try {
-      localStorage.setItem(`soulfiy_ai_${currentUser}`, JSON.stringify(aiSuggestions));
-    } catch (e) {
-      console.error("Failed saving AI suggestions", e);
-    }
+
+    const saveData = async () => {
+      try {
+        await setDoc(
+          doc(db, "users", currentUser.uid),
+          {
+            days,
+            updatedAt: new Date().toISOString(),
+          },
+          { merge: true }
+        );
+      } catch (error) {
+        console.error("Veri kaydetme hatası:", error);
+      }
+    };
+
+    saveData();
+  }, [days, currentUser]);
+
+  // AI önerilerini Firestore'a kaydet
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const saveAI = async () => {
+      try {
+        await setDoc(
+          doc(db, "users", currentUser.uid),
+          {
+            aiSuggestions,
+            updatedAt: new Date().toISOString(),
+          },
+          { merge: true }
+        );
+      } catch (error) {
+        console.error("AI önerileri kaydetme hatası:", error);
+      }
+    };
+
+    saveAI();
   }, [aiSuggestions, currentUser]);
 
-  const handleRegister = (e) => {
+  const handleRegister = async (e) => {
     e.preventDefault();
-    if (!username.trim() || !password.trim()) {
-      alert("❌ Kullanıcı adı ve şifre boş olamaz!");
+    if (!email.trim() || !password.trim()) {
+      alert("❌ Email ve şifre boş olamaz!");
       return;
     }
-    
-    // Kullanıcı var mı kontrol et
-    const users = JSON.parse(localStorage.getItem("soulfiy_users") || "{}");
-    if (users[username]) {
-      alert("❌ Bu kullanıcı adı zaten kullanılıyor!");
-      return;
-    }
-    
-    // Yeni kullanıcı kaydet
-    users[username] = { password, createdAt: new Date().toISOString() };
-    localStorage.setItem("soulfiy_users", JSON.stringify(users));
-    
-    // Otomatik giriş yap
-    setCurrentUser(username);
-    setIsAuthenticated(true);
-    localStorage.setItem("soulfiy_current_user", username);
-    
-    // Yeni kullanıcı için boş veri oluştur
-    localStorage.setItem(`soulfiy_data_${username}`, JSON.stringify(INITIAL_DATA));
-    setDays(INITIAL_DATA);
-    
-    alert("✅ Hesabınız oluşturuldu!");
-  };
 
-  const handleLogin = (e) => {
-    e.preventDefault();
-    if (!username.trim() || !password.trim()) {
-      alert("❌ Kullanıcı adı ve şifre boş olamaz!");
-      return;
-    }
-    
-    const users = JSON.parse(localStorage.getItem("soulfiy_users") || "{}");
-    
-    if (!users[username]) {
-      alert("❌ Kullanıcı bulunamadı!");
-      return;
-    }
-    
-    if (users[username].password !== password) {
-      alert("❌ Hatalı şifre!");
-      return;
-    }
-    
-    // Giriş başarılı
-    setCurrentUser(username);
-    setIsAuthenticated(true);
-    localStorage.setItem("soulfiy_current_user", username);
-    
-    // Kullanıcının verilerini yükle
-    const userData = localStorage.getItem(`soulfiy_data_${username}`);
-    if (userData) {
-      setDays(JSON.parse(userData));
-    } else {
-      setDays(INITIAL_DATA);
-    }
-    
-    const aiData = localStorage.getItem(`soulfiy_ai_${username}`);
-    if (aiData) {
-      setAiSuggestions(JSON.parse(aiData));
-    } else {
-      setAiSuggestions({});
+    setLoading(true);
+    try {
+      // Firebase Authentication ile kullanıcı oluştur
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+
+      // Firestore'da kullanıcı belgesi oluştur
+      await setDoc(doc(db, "users", userCredential.user.uid), {
+        email: email,
+        createdAt: new Date().toISOString(),
+        days: INITIAL_DATA,
+        aiSuggestions: {},
+      });
+
+      alert("✅ Hesabınız başarıyla oluşturuldu!");
+    } catch (error) {
+      console.error("Kayıt hatası:", error);
+      if (error.code === "auth/email-already-in-use") {
+        alert("❌ Bu email adresi zaten kullanılıyor!");
+      } else if (error.code === "auth/weak-password") {
+        alert("❌ Şifre çok zayıf! En az 6 karakter olmalı.");
+      } else if (error.code === "auth/invalid-email") {
+        alert("❌ Geçersiz email adresi!");
+      } else {
+        alert("❌ Kayıt sırasında bir hata oluştu: " + error.message);
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    setCurrentUser(null);
-    localStorage.removeItem("soulfiy_current_user");
-    setPassword("");
-    setUsername("");
-    setDays(INITIAL_DATA);
-    setAiSuggestions({});
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    if (!email.trim() || !password.trim()) {
+      alert("❌ Email ve şifre boş olamaz!");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Firebase Authentication ile giriş yap
+      await signInWithEmailAndPassword(auth, email, password);
+      // Auth state listener otomatik olarak kullanıcı verilerini yükleyecek
+    } catch (error) {
+      console.error("Giriş hatası:", error);
+      if (error.code === "auth/user-not-found") {
+        alert("❌ Kullanıcı bulunamadı!");
+      } else if (error.code === "auth/wrong-password") {
+        alert("❌ Hatalı şifre!");
+      } else if (error.code === "auth/invalid-email") {
+        alert("❌ Geçersiz email adresi!");
+      } else if (error.code === "auth/invalid-credential") {
+        alert("❌ Email veya şifre hatalı!");
+      } else {
+        alert("❌ Giriş sırasında bir hata oluştu: " + error.message);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      setPassword("");
+      setEmail("");
+    } catch (error) {
+      console.error("Çıkış hatası:", error);
+      alert("❌ Çıkış yapılırken bir hata oluştu!");
+    }
   };
 
   const toggleCompleted = (id) => {
@@ -466,14 +505,28 @@ export default function App() {
   };
 
   // Reset all data
-  const resetData = () => {
+  const resetData = async () => {
     if (!confirm("Tüm ilerleme ve günlükler sıfırlansın mı?")) return;
-    if (currentUser) {
-      localStorage.removeItem(`soulfiy_data_${currentUser}`);
-      localStorage.removeItem(`soulfiy_ai_${currentUser}`);
-    }
+    
     setDays(INITIAL_DATA);
     setAiSuggestions({});
+    
+    if (currentUser) {
+      try {
+        await setDoc(
+          doc(db, "users", currentUser.uid),
+          {
+            days: INITIAL_DATA,
+            aiSuggestions: {},
+            updatedAt: new Date().toISOString(),
+          },
+          { merge: true }
+        );
+      } catch (error) {
+        console.error("Sıfırlama hatası:", error);
+        alert("❌ Veriler sıfırlanırken bir hata oluştu!");
+      }
+    }
   };
 
   // Login Screen
@@ -484,12 +537,13 @@ export default function App() {
         setDarkMode={toggleDarkMode}
         password={password}
         setPassword={setPassword}
-        username={username}
-        setUsername={setUsername}
+        email={email}
+        setEmail={setEmail}
         showPassword={showPassword}
         setShowPassword={setShowPassword}
         handleLogin={handleLogin}
         handleRegister={handleRegister}
+        loading={loading}
       />
     );
   }
@@ -539,7 +593,11 @@ export default function App() {
           </main>
 
           {/* Footer Controls */}
-          <Footer darkMode={darkMode} exportData={exportData} resetData={resetData} />
+          <Footer
+            darkMode={darkMode}
+            exportData={exportData}
+            resetData={resetData}
+          />
         </div>
       </div>
     </div>
