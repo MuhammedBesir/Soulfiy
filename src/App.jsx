@@ -260,6 +260,7 @@ export default function App() {
   const [aiSuggestions, setAiSuggestions] = useState({});
   const [loadingAI, setLoadingAI] = useState({});
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [darkMode, setDarkMode] = useState(() => {
     try {
       return localStorage.getItem("soulfiy_darkMode") === "true";
@@ -284,24 +285,35 @@ export default function App() {
             const data = userDoc.data();
             setDays(data.days || INITIAL_DATA);
             setAiSuggestions(data.aiSuggestions || {});
+          } else {
+            // İlk giriş - INITIAL_DATA'yı kaydet
+            await setDoc(doc(db, "users", user.uid), {
+              email: user.email,
+              createdAt: new Date().toISOString(),
+              days: INITIAL_DATA,
+              aiSuggestions: {},
+            });
           }
+          setIsInitialLoad(false);
         } catch (error) {
           console.error("Veri yükleme hatası:", error);
+          setIsInitialLoad(false);
         }
       } else {
         setCurrentUser(null);
         setIsAuthenticated(false);
         setDays(INITIAL_DATA);
         setAiSuggestions({});
+        setIsInitialLoad(true);
       }
     });
 
     return () => unsubscribe();
   }, []);
 
-  // Days değiştiğinde Firestore'a kaydet
+  // Days değiştiğinde Firestore'a kaydet (ilk yükleme hariç)
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser || isInitialLoad) return;
 
     const saveData = async () => {
       try {
@@ -313,17 +325,18 @@ export default function App() {
           },
           { merge: true }
         );
+        console.log("Veriler kaydedildi");
       } catch (error) {
         console.error("Veri kaydetme hatası:", error);
       }
     };
 
     saveData();
-  }, [days, currentUser]);
+  }, [days, currentUser, isInitialLoad]);
 
-  // AI önerilerini Firestore'a kaydet
+  // AI önerilerini Firestore'a kaydet (ilk yükleme hariç)
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser || isInitialLoad) return;
 
     const saveAI = async () => {
       try {
@@ -341,7 +354,7 @@ export default function App() {
     };
 
     saveAI();
-  }, [aiSuggestions, currentUser]);
+  }, [aiSuggestions, currentUser, isInitialLoad]);
 
   const handleRegister = async (e) => {
     e.preventDefault();
