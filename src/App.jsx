@@ -247,10 +247,16 @@ Kullanıcıya kısa, motive edici ve pratik bir öneri ver. Türkçe yaz, 2-3 c�
 export default function App() {
   const [showPassword, setShowPassword] = useState(false);
   const [password, setPassword] = useState("");
+  const [username, setUsername] = useState("");
+  const [currentUser, setCurrentUser] = useState(() => {
+    return localStorage.getItem("soulfiy_current_user") || null;
+  });
   const [aiSuggestions, setAiSuggestions] = useState(() => {
-    // localStorage'dan AI önerilerini yükle
+    // Kullanıcıya özel AI önerilerini yükle
+    const user = localStorage.getItem("soulfiy_current_user");
+    if (!user) return {};
     try {
-      const saved = localStorage.getItem(AI_SUGGESTIONS_KEY);
+      const saved = localStorage.getItem(`soulfiy_ai_${user}`);
       return saved ? JSON.parse(saved) : {};
     } catch {
       return {};
@@ -258,7 +264,7 @@ export default function App() {
   });
   const [loadingAI, setLoadingAI] = useState({});
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return localStorage.getItem(AUTH_KEY) === "true";
+    return localStorage.getItem("soulfiy_current_user") !== null;
   });
   const [darkMode, setDarkMode] = useState(() => {
     try {
@@ -269,8 +275,10 @@ export default function App() {
   });
 
   const [days, setDays] = useState(() => {
+    const user = localStorage.getItem("soulfiy_current_user");
+    if (!user) return INITIAL_DATA;
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = localStorage.getItem(`soulfiy_data_${user}`);
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length === INITIAL_DATA.length)
@@ -290,12 +298,93 @@ export default function App() {
 
   // AI önerilerini localStorage'a kaydet
   useEffect(() => {
+    if (!currentUser) return;
     try {
-      localStorage.setItem(AI_SUGGESTIONS_KEY, JSON.stringify(aiSuggestions));
+      localStorage.setItem(`soulfiy_ai_${currentUser}`, JSON.stringify(aiSuggestions));
     } catch (e) {
       console.error("Failed saving AI suggestions", e);
     }
-  }, [aiSuggestions]);
+  }, [aiSuggestions, currentUser]);
+
+  const handleRegister = (e) => {
+    e.preventDefault();
+    if (!username.trim() || !password.trim()) {
+      alert("❌ Kullanıcı adı ve şifre boş olamaz!");
+      return;
+    }
+    
+    // Kullanıcı var mı kontrol et
+    const users = JSON.parse(localStorage.getItem("soulfiy_users") || "{}");
+    if (users[username]) {
+      alert("❌ Bu kullanıcı adı zaten kullanılıyor!");
+      return;
+    }
+    
+    // Yeni kullanıcı kaydet
+    users[username] = { password, createdAt: new Date().toISOString() };
+    localStorage.setItem("soulfiy_users", JSON.stringify(users));
+    
+    // Otomatik giriş yap
+    setCurrentUser(username);
+    setIsAuthenticated(true);
+    localStorage.setItem("soulfiy_current_user", username);
+    
+    // Yeni kullanıcı için boş veri oluştur
+    localStorage.setItem(`soulfiy_data_${username}`, JSON.stringify(INITIAL_DATA));
+    setDays(INITIAL_DATA);
+    
+    alert("✅ Hesabınız oluşturuldu!");
+  };
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+    if (!username.trim() || !password.trim()) {
+      alert("❌ Kullanıcı adı ve şifre boş olamaz!");
+      return;
+    }
+    
+    const users = JSON.parse(localStorage.getItem("soulfiy_users") || "{}");
+    
+    if (!users[username]) {
+      alert("❌ Kullanıcı bulunamadı!");
+      return;
+    }
+    
+    if (users[username].password !== password) {
+      alert("❌ Hatalı şifre!");
+      return;
+    }
+    
+    // Giriş başarılı
+    setCurrentUser(username);
+    setIsAuthenticated(true);
+    localStorage.setItem("soulfiy_current_user", username);
+    
+    // Kullanıcının verilerini yükle
+    const userData = localStorage.getItem(`soulfiy_data_${username}`);
+    if (userData) {
+      setDays(JSON.parse(userData));
+    } else {
+      setDays(INITIAL_DATA);
+    }
+    
+    const aiData = localStorage.getItem(`soulfiy_ai_${username}`);
+    if (aiData) {
+      setAiSuggestions(JSON.parse(aiData));
+    } else {
+      setAiSuggestions({});
+    }
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    setCurrentUser(null);
+    localStorage.removeItem("soulfiy_current_user");
+    setPassword("");
+    setUsername("");
+    setDays(INITIAL_DATA);
+    setAiSuggestions({});
+  };
 
   const toggleCompleted = (id) => {
     setDays((prev) =>
@@ -341,24 +430,6 @@ export default function App() {
     });
   };
 
-  // Login handler
-  const handleLogin = (e) => {
-    e.preventDefault();
-    if (password === SECRET_PASSWORD) {
-      setIsAuthenticated(true);
-      localStorage.setItem(AUTH_KEY, "true");
-      setPassword("");
-    } else {
-      alert("Yanlış şifre!");
-    }
-  };
-
-  // Logout handler
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    localStorage.removeItem(AUTH_KEY);
-  };
-
   // AI öneri al
   const requestAISuggestion = async (day) => {
     if (loadingAI[day.id]) return;
@@ -397,8 +468,10 @@ export default function App() {
   // Reset all data
   const resetData = () => {
     if (!confirm("Tüm ilerleme ve günlükler sıfırlansın mı?")) return;
-    localStorage.removeItem(STORAGE_KEY);
-    localStorage.removeItem(AI_SUGGESTIONS_KEY);
+    if (currentUser) {
+      localStorage.removeItem(`soulfiy_data_${currentUser}`);
+      localStorage.removeItem(`soulfiy_ai_${currentUser}`);
+    }
     setDays(INITIAL_DATA);
     setAiSuggestions({});
   };
@@ -411,9 +484,12 @@ export default function App() {
         setDarkMode={toggleDarkMode}
         password={password}
         setPassword={setPassword}
+        username={username}
+        setUsername={setUsername}
         showPassword={showPassword}
         setShowPassword={setShowPassword}
         handleLogin={handleLogin}
+        handleRegister={handleRegister}
       />
     );
   }

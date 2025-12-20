@@ -1,5 +1,5 @@
-import React from "react";
-import { Lock, Eye, EyeOff, Sun, Moon } from "lucide-react";
+import React, { useState } from "react";
+import { Lock, Eye, EyeOff, Sun, Moon, UserPlus, LogIn } from "lucide-react";
 
 export default function LoginScreen({
   darkMode,
@@ -9,7 +9,21 @@ export default function LoginScreen({
   showPassword,
   setShowPassword,
   handleLogin,
+  handleRegister,
+  username,
+  setUsername,
 }) {
+  const [isLoginMode, setIsLoginMode] = useState(true);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (isLoginMode) {
+      handleLogin(e);
+    } else {
+      handleRegister(e);
+    }
+  };
+
   return (
     <div
       className={`min-h-screen flex items-center justify-center p-4 ${
@@ -66,11 +80,35 @@ export default function LoginScreen({
               darkMode ? "text-slate-400" : "text-slate-500"
             }`}
           >
-            Haftalık Gelişim Takibi
+            {isLoginMode ? "Hesabına giriş yap" : "Yeni hesap oluştur"}
           </p>
         </div>
 
-        <form onSubmit={handleLogin} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label
+              className={`block text-sm font-medium mb-2 ${
+                darkMode ? "text-slate-300" : "text-slate-700"
+              }`}
+            >
+              Kullanıcı Adı
+            </label>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Kullanıcı adınız"
+              required
+              className={`w-full px-4 py-3 rounded-lg border ${
+                darkMode
+                  ? "bg-slate-700 border-slate-600 text-white placeholder-slate-400"
+                  : "bg-white border-orange-200 text-slate-900 placeholder-slate-400"
+              } focus:outline-none focus:ring-2 ${
+                darkMode ? "focus:ring-amber-500" : "focus:ring-orange-500"
+              }`}
+            />
+          </div>
+
           <div>
             <label
               className={`block text-sm font-medium mb-2 ${
@@ -85,6 +123,8 @@ export default function LoginScreen({
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Şifrenizi girin"
+                required
+                minLength="4"
                 className={`w-full px-4 py-3 rounded-lg border ${
                   darkMode
                     ? "bg-slate-700 border-slate-600 text-white placeholder-slate-400"
@@ -113,15 +153,40 @@ export default function LoginScreen({
 
           <button
             type="submit"
-            className={`w-full py-3 rounded-lg font-semibold transition-all ${
+            className={`w-full py-3 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${
               darkMode
                 ? "bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white"
                 : "bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white"
             } shadow-lg hover:shadow-xl`}
           >
-            Giriş Yap
+            {isLoginMode ? (
+              <>
+                <LogIn className="w-5 h-5" />
+                Giriş Yap
+              </>
+            ) : (
+              <>
+                <UserPlus className="w-5 h-5" />
+                Kayıt Ol
+              </>
+            )}
           </button>
         </form>
+
+        <div className="mt-6 text-center">
+          <button
+            onClick={() => setIsLoginMode(!isLoginMode)}
+            className={`text-sm font-medium ${
+              darkMode
+                ? "text-amber-400 hover:text-amber-300"
+                : "text-orange-600 hover:text-orange-700"
+            }`}
+          >
+            {isLoginMode
+              ? "Hesabın yok mu? Kayıt ol"
+              : "Zaten hesabın var mı? Giriş yap"}
+          </button>
+        </div>
       </div>
     </div>
   );
