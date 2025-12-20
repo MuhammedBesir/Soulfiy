@@ -278,26 +278,63 @@ export default function App() {
         setCurrentUser(user);
         setIsAuthenticated(true);
 
-        // Firestore'dan kullanıcı verilerini yükle
-        try {
-          const userDoc = await getDoc(doc(db, "users", user.uid));
-          if (userDoc.exists()) {
-            const data = userDoc.data();
-            setDays(data.days || INITIAL_DATA);
-            setAiSuggestions(data.aiSuggestions || {});
-          } else {
-            // İlk giriş - INITIAL_DATA'yı kaydet
-            await setDoc(doc(db, "users", user.uid), {
-              email: user.email,
-              createdAt: new Date().toISOString(),
-              days: INITIAL_DATA,
-              aiSuggestions: {},
-            });
+        // Firestore'dan kullanıcı verilerini yükle (retry logic ile)
+        let retries = 3;
+        let success = false;
+        
+        while (retries > 0 && !success) {
+          try {
+            const userDoc = await getDoc(doc(db, "users", user.uid));
+            if (userDoc.exists()) {
+              const data = userDoc.data();
+              setDays(data.days || INITIAL_DATA);
+              setAiSuggestions(data.aiSuggestions || {});
+              console.log("✅ Veriler Firestore'dan yüklendi");
+            } else {
+              // İlk giriş - INITIAL_DATA'yı kaydet
+              await setDoc(doc(db, "users", user.uid), {
+                email: user.email,
+                createdAt: new Date().toISOString(),
+                days: INITIAL_DATA,
+                aiSuggestions: {},
+              });
+              console.log("✅ İlk kullanıcı verisi oluşturuldu");
+            }
+            success = true;
+            setIsInitialLoad(false);
+          } catch (error) {
+            console.error("Veri yükleme hatası (deneme kaldı: " + (retries - 1) + "):", error);
+            retries--;
+            
+            if (retries === 0) {
+              // Tüm denemeler başarısız - localStorage'dan yükle
+              console.warn("⚠️ Firestore'a erişilemiyor, localStorage kullanılıyor");
+              const localData = localStorage.getItem(`soulfiy_${user.uid}_days`);
+              const localAI = localStorage.getItem(`soulfiy_${user.uid}_ai`);
+              
+              if (localData) {
+                try {
+                  setDays(JSON.parse(localData));
+                  console.log("📦 Veriler localStorage'dan yüklendi");
+                } catch (e) {
+                  console.error("localStorage parse hatası:", e);
+                }
+              }
+              
+              if (localAI) {
+                try {
+                  setAiSuggestions(JSON.parse(localAI));
+                } catch (e) {
+                  console.error("localStorage AI parse hatası:", e);
+                }
+              }
+              
+              setIsInitialLoad(false);
+            } else {
+              // 1 saniye bekle ve tekrar dene
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
           }
-          setIsInitialLoad(false);
-        } catch (error) {
-          console.error("Veri yükleme hatası:", error);
-          setIsInitialLoad(false);
         }
       } else {
         setCurrentUser(null);
@@ -317,6 +354,7 @@ export default function App() {
 
     const saveData = async () => {
       try {
+        // Firestore'a kaydet
         await setDoc(
           doc(db, "users", currentUser.uid),
           {
@@ -325,9 +363,19 @@ export default function App() {
           },
           { merge: true }
         );
-        console.log("Veriler kaydedildi");
+        console.log("✅ Veriler Firestore'a kaydedildi");
+        
+        // localStorage'a da yedekle
+        localStorage.setItem(`soulfiy_${currentUser.uid}_days`, JSON.stringify(days));
       } catch (error) {
-        console.error("Veri kaydetme hatası:", error);
+        console.error("❌ Firestore kaydetme hatası:", error);
+        // Hata olsa bile localStorage'a kaydet
+        try {
+          localStorage.setItem(`soulfiy_${currentUser.uid}_days`, JSON.stringify(days));
+          console.log("📦 Veriler localStorage'a yedeklendi");
+        } catch (e) {
+          console.error("localStorage hatası:", e);
+        }
       }
     };
 
@@ -348,8 +396,17 @@ export default function App() {
           },
           { merge: true }
         );
+        
+        // localStorage'a da yedekle
+        localStorage.setItem(`soulfiy_${currentUser.uid}_ai`, JSON.stringify(aiSuggestions));
       } catch (error) {
-        console.error("AI önerileri kaydetme hatası:", error);
+        console.error("❌ AI kaydetme hatası:", error);
+        // localStorage'a yedekle
+        try {
+          localStorage.setItem(`soulfiy_${currentUser.uid}_ai`, JSON.stringify(aiSuggestions));
+        } catch (e) {
+          console.error("localStorage hatası:", e);
+        }
       }
     };
 
