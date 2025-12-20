@@ -460,12 +460,8 @@ export function exportToPDF(days, aiSuggestions) {
         y = 20;
       }
 
-      // Gün kartı arka planı
-      const dayColor = day.completed ? green : gray;
-      doc.setFillColor(lightCream[0], lightCream[1], lightCream[2]);
-      doc.roundedRect(leftMargin, y, 170, 8, 2, 2, 'F');
-      
       // Gün başlık çubuğu
+      const dayColor = day.completed ? green : gray;
       doc.setFillColor(dayColor[0], dayColor[1], dayColor[2]);
       doc.roundedRect(leftMargin, y, 170, 8, 2, 2, 'F');
 
@@ -480,12 +476,9 @@ export function exportToPDF(days, aiSuggestions) {
       doc.text(day.day || "Gün " + (index + 1), leftMargin + 12, y + 5.5);
 
       y += 12;
-
-      // İçerik kutusu
-      doc.setFillColor(255, 255, 255);
-      doc.roundedRect(leftMargin, y, 170, 'auto', 2, 2, 'F');
       
       let contentY = y + 5;
+      const contentStartY = contentY;
 
       // Spor aktivitesi
       if (day.sport) {
@@ -602,6 +595,11 @@ export function exportToPDF(days, aiSuggestions) {
           contentY += 3.5;
         });
       }
+
+      // İçerik kutusu arka planını şimdi çiz (yükseklik belli oldu)
+      const contentHeight = contentY - contentStartY + 5;
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(leftMargin, y, 170, contentHeight, 2, 2, 'S');
 
       y = contentY + 6;
     });
