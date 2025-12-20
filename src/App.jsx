@@ -507,10 +507,10 @@ export default function App() {
   // Reset all data
   const resetData = async () => {
     if (!confirm("Tüm ilerleme ve günlükler sıfırlansın mı?")) return;
-    
+
     setDays(INITIAL_DATA);
     setAiSuggestions({});
-    
+
     if (currentUser) {
       try {
         await setDoc(
