@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   Activity,
   Target,
@@ -271,10 +271,14 @@ export default function App() {
 
   const [days, setDays] = useState(INITIAL_DATA);
 
+  // Ref ile senkron kontrol (state güncellemesi gecikmesin)
+  const isInitialLoadRef = useRef(false);
+
   // Firebase auth state listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
+        isInitialLoadRef.current = true; // Senkron olarak ayarla
         setIsInitialLoad(true); // Veri yüklenirken kaydetmeyi engelle
         setCurrentUser(user);
         setIsAuthenticated(true);
@@ -343,9 +347,11 @@ export default function App() {
         }
 
         // Her durumda (başarı veya başarısızlık) isInitialLoad'u false yap
+        isInitialLoadRef.current = false; // Senkron olarak ayarla
         setIsInitialLoad(false);
         console.log("🔓 Kaydetme aktif edildi");
       } else {
+        isInitialLoadRef.current = false;
         setCurrentUser(null);
         setIsAuthenticated(false);
         setDays(INITIAL_DATA);
@@ -359,10 +365,10 @@ export default function App() {
 
   // Days değiştiğinde Firestore'a kaydet (ilk yükleme hariç)
   useEffect(() => {
-    if (!currentUser || isInitialLoad) {
+    if (!currentUser || isInitialLoadRef.current) {
       console.log(
         "⏸️ Kaydetme atlandı - isInitialLoad:",
-        isInitialLoad,
+        isInitialLoadRef.current,
         "currentUser:",
         !!currentUser
       );
@@ -409,7 +415,7 @@ export default function App() {
 
   // AI önerilerini Firestore'a kaydet (ilk yükleme hariç)
   useEffect(() => {
-    if (!currentUser || isInitialLoad) return;
+    if (!currentUser || isInitialLoadRef.current) return;
 
     // Debounce ile 500ms sonra kaydet
     const timeoutId = setTimeout(async () => {
