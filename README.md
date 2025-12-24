@@ -6,11 +6,12 @@ Haftalık self-improvement hedeflerinizi takip edin, gelişiminizi izleyin ve AI
 
 - ✅ **Haftalık Takip**: 7 günlük gelişim planı
 - 👤 **Çoklu Kullanıcı**: Email ile kayıt ve giriş
-- ☁️ **Cloud Sync**: Firebase ile cihazlar arası senkronizasyon
+- 💾 **LocalStorage**: Tüm veriler tarayıcıda saklanır (hiç sunucu yok!)
 - 🤖 **AI Önerileri**: Google Gemini ile akıllı öneriler
 - 📊 **PDF Rapor**: Haftalık gelişim raporunu indir
 - 🌙 **Dark Mode**: Göz dostu karanlık tema
-- 💾 **Otomatik Kayıt**: Verileriniz otomatik kaydedilir
+- 🔒 **Gizlilik**: Verileriniz sadece sizde kalır
+- 📴 **Offline Çalışır**: İnternet gerektirmez
 
 ## 🛠️ Kurulum
 
@@ -27,62 +28,11 @@ cd Soulfiy
 npm install
 ```
 
-### 3. Firebase Kurulumu
+### 3. Environment Variables (Opsiyonel)
 
-#### 3.1. Firebase Projesi Oluşturun
-
-1. [Firebase Console](https://console.firebase.google.com/) 'a gidin
-2. "Add project" ile yeni proje oluşturun
-3. Proje adı: "Soulfiy" (veya istediğiniz isim)
-
-#### 3.2. Firebase Authentication Ayarları
-
-1. Firebase Console → **Authentication** → **Get started**
-2. **Sign-in method** sekmesinde **Email/Password**'ü etkinleştirin
-3. "Email/Password" → **Enable** → Save
-
-#### 3.3. Firestore Database Ayarları
-
-1. Firebase Console → **Firestore Database** → **Create database**
-2. **Production mode** seçin → **Next**
-3. Location seçin (Europe-west3 önerilir) → **Enable**
-
-#### 3.4. Firebase Rules
-
-Firestore Rules kısmına şu kuralları ekleyin:
-
-```javascript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /users/{userId} {
-      // Sadece kendi verilerine erişebilir
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-  }
-}
-```
-
-#### 3.5. Firebase Config
-
-1. Firebase Console → **Project Settings** (⚙️ ikonu)
-2. **Your apps** → **Web app** (</> ikonu) → **Register app**
-3. App nickname: "Soulfiy Web"
-4. **Firebase SDK snippet** → **Config** seçeneğini kopyalayın
-
-### 4. Environment Variables
-
-`.env` dosyası oluşturun ve Firebase config bilgilerinizi ekleyin:
+Sadece AI önerileri için gerekli. `.env` dosyası oluşturun:
 
 ```env
-# Firebase Configuration
-VITE_FIREBASE_API_KEY=your_api_key_here
-VITE_FIREBASE_AUTH_DOMAIN=your_project_id.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=your_project_id
-VITE_FIREBASE_STORAGE_BUCKET=your_project_id.appspot.com
-VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-VITE_FIREBASE_APP_ID=your_app_id
-
 # AI API Key (Google Gemini) - Opsiyonel
 VITE_AI_API_KEY=your_gemini_api_key
 ```
@@ -93,7 +43,7 @@ VITE_AI_API_KEY=your_gemini_api_key
 2. "Create API Key" ile ücretsiz API key alın
 3. `.env` dosyasına ekleyin
 
-### 5. Uygulamayı Çalıştırın
+### 4. Uygulamayı Çalıştırın
 
 ```bash
 npm run dev
@@ -148,6 +98,21 @@ Environment variables'ı Vercel Dashboard'dan ekleyin.
 - Hiçbir veri 3. partilerle paylaşılmaz
 - Verileriniz sadece sizin erişiminizde
 
+## 📊 Nasıl Çalışır?
+
+1. **Kayıt Ol**: Email ve şifre ile hesap oluştur
+2. **Hedef Belirle**: Her gün için spor ve kodlama hedefi belirle
+3. **Günlük Tut**: Düşüncelerini yaz, AI'dan öneri al
+4. **İzle**: Haftalık ilerleme istatistiklerini gör
+5. **Rapor Al**: Hafta sonunda PDF rapor indir
+
+## 🔒 Gizlilik ve Güvenlik
+
+- Tüm veriler **tarayıcınızda** localStorage'da saklanır
+- Hiçbir veri sunucuya gönderilmez
+- Şifreler Base64 ile kodlanır (basit şifreleme)
+- Sadece AI önerileri için internet gerekir
+
 ## 🤝 Katkıda Bulunma
 
 Pull request'ler memnuniyetle karşılanır!
@@ -166,7 +131,7 @@ MIT License - Detaylar için [LICENSE](LICENSE) dosyasına bakın.
 - React 18
 - Vite
 - Tailwind CSS
-- Firebase (Auth + Firestore)
+- LocalStorage API
 - Google Gemini AI
 - jsPDF
 - Lucide Icons

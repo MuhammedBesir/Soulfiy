@@ -13,14 +13,6 @@ import Header from "./components/Header";
 import DayCard from "./components/DayCard";
 import Footer from "./components/Footer";
 import { exportToPDF } from "./utils/pdfExport";
-import { auth, db } from "./firebase";
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-} from "firebase/auth";
-import { doc, setDoc, getDoc, updateDoc } from "firebase/firestore";
 
 // Environment variables'dan al - güvenli!
 const AI_API_KEY = import.meta.env.VITE_AI_API_KEY || "";
@@ -96,11 +88,13 @@ const INITIAL_DATA = [
   },
 ];
 
-const STORAGE_KEY = "weekly-tracker-data-v1";
-const DARK_MODE_KEY = "weekly-tracker-dark-mode";
-const AUTH_KEY = "weekly-tracker-auth";
-const AI_SUGGESTIONS_KEY = "weekly-tracker-ai-suggestions";
-const QUOTES_WEEK_KEY = "weekly-tracker-quotes-week";
+// LocalStorage keys
+const STORAGE_KEY = "soulfiy-data-v2";
+const DARK_MODE_KEY = "soulfiy-dark-mode";
+const AUTH_KEY = "soulfiy-auth";
+const AI_SUGGESTIONS_KEY = "soulfiy-ai-suggestions";
+const QUOTES_WEEK_KEY = "soulfiy-quotes-week";
+const USER_KEY = "soulfiy-current-user";
 
 // Haftalık motive edici sözler havuzu
 const MOTIVATIONAL_QUOTES_POOL = [
@@ -260,7 +254,6 @@ export default function App() {
   const [aiSuggestions, setAiSuggestions] = useState({});
   const [loadingAI, setLoadingAI] = useState({});
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isInitialLoad, setIsInitialLoad] = useState(false);
   const [darkMode, setDarkMode] = useState(() => {
     try {
       return localStorage.getItem(DARK_MODE_KEY) === "true";
@@ -271,172 +264,69 @@ export default function App() {
 
   const [days, setDays] = useState(INITIAL_DATA);
 
-  // Ref ile senkron kontrol (state güncellemesi gecikmesin)
-  const isInitialLoadRef = useRef(false);
-
-  // Firebase auth state listener
+  // Uygulama başladığında kullanıcıyı kontrol et
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        isInitialLoadRef.current = true; // Senkron olarak ayarla
-        setIsInitialLoad(true); // Veri yüklenirken kaydetmeyi engelle
+    const savedUser = localStorage.getItem(USER_KEY);
+    if (savedUser) {
+      try {
+        const user = JSON.parse(savedUser);
         setCurrentUser(user);
         setIsAuthenticated(true);
 
-        // Önce localStorage'dan yükle (hızlı)
-        const localData = localStorage.getItem(`soulfiy_${user.uid}_days`);
-        const localAI = localStorage.getItem(`soulfiy_${user.uid}_ai`);
+        // Kullanıcı verilerini yükle
+        const userDataKey = `${STORAGE_KEY}_${user.email}`;
+        const userAIKey = `${AI_SUGGESTIONS_KEY}_${user.email}`;
 
-        if (localData) {
-          try {
-            setDays(JSON.parse(localData));
-            console.log("📦 Veriler localStorage'dan yüklendi");
-          } catch (e) {
-            console.error("localStorage parse hatası:", e);
-          }
+        const savedDays = localStorage.getItem(userDataKey);
+        const savedAI = localStorage.getItem(userAIKey);
+
+        if (savedDays) {
+          setDays(JSON.parse(savedDays));
+          console.log("📦 Veriler yüklendi");
         }
 
-        if (localAI) {
-          try {
-            setAiSuggestions(JSON.parse(localAI));
-          } catch (e) {
-            console.error("localStorage AI parse hatası:", e);
-          }
+        if (savedAI) {
+          setAiSuggestions(JSON.parse(savedAI));
         }
-
-        // Arka planda Firestore'dan senkronize et (offline hatalarını sessizce handle et)
-        try {
-          const userDoc = await getDoc(doc(db, "users", user.uid));
-          if (userDoc.exists()) {
-            const data = userDoc.data();
-            setDays(data.days || INITIAL_DATA);
-            setAiSuggestions(data.aiSuggestions || {});
-            console.log("✅ Veriler Firestore'dan senkronize edildi");
-          } else {
-            // İlk giriş - INITIAL_DATA'yı kaydet
-            await setDoc(doc(db, "users", user.uid), {
-              email: user.email,
-              createdAt: new Date().toISOString(),
-              days: INITIAL_DATA,
-              aiSuggestions: {},
-            });
-            console.log("✅ İlk kullanıcı verisi oluşturuldu");
-          }
-        } catch (error) {
-          // Offline veya bağlantı hatası - sessizce devam et
-          if (error.code === "unavailable") {
-            console.log("📴 Offline modda çalışılıyor");
-          } else {
-            console.warn("⚠️ Firestore senkronizasyonu başarısız:", error.message);
-          }
-        }
-
-        // Her durumda (başarı veya başarısızlık) isInitialLoad'u false yap
-        isInitialLoadRef.current = false; // Senkron olarak ayarla
-        setIsInitialLoad(false);
-        console.log("🔓 Kaydetme aktif edildi");
-      } else {
-        isInitialLoadRef.current = false;
-        setCurrentUser(null);
-        setIsAuthenticated(false);
-        setDays(INITIAL_DATA);
-        setAiSuggestions({});
-        setIsInitialLoad(false);
+      } catch (e) {
+        console.error("Kullanıcı yükleme hatası:", e);
+        localStorage.removeItem(USER_KEY);
       }
-    });
-
-    return () => unsubscribe();
+    }
   }, []);
 
-  // Days değiştiğinde Firestore'a kaydet (ilk yükleme hariç)
+  // Days değiştiğinde kaydet
   useEffect(() => {
-    if (!currentUser || isInitialLoadRef.current) {
-      console.log(
-        "⏸️ Kaydetme atlandı - isInitialLoad:",
-        isInitialLoadRef.current,
-        "currentUser:",
-        !!currentUser
-      );
-      return;
-    }
+    if (!currentUser) return;
 
-    // Debounce ile 500ms sonra kaydet (çok fazla istek önlenir)
-    const timeoutId = setTimeout(async () => {
+    const timeoutId = setTimeout(() => {
       try {
-        // localStorage'a hemen kaydet (hızlı)
-        localStorage.setItem(
-          `soulfiy_${currentUser.uid}_days`,
-          JSON.stringify(days)
-        );
-        console.log("💾 localStorage'a kaydedildi");
-
-        // Firestore'a kaydet
-        await setDoc(
-          doc(db, "users", currentUser.uid),
-          {
-            days,
-            updatedAt: new Date().toISOString(),
-          },
-          { merge: true }
-        );
-        console.log("✅ Veriler Firestore'a kaydedildi");
-      } catch (error) {
-        console.error("❌ Firestore kaydetme hatası:", error);
-        // Hata olsa bile localStorage'a kaydet
-        try {
-          localStorage.setItem(
-            `soulfiy_${currentUser.uid}_days`,
-            JSON.stringify(days)
-          );
-          console.log("📦 Veriler localStorage'a yedeklendi");
-        } catch (e) {
-          console.error("localStorage hatası:", e);
-        }
+        const userDataKey = `${STORAGE_KEY}_${currentUser.email}`;
+        localStorage.setItem(userDataKey, JSON.stringify(days));
+        console.log("💾 Veriler kaydedildi");
+      } catch (e) {
+        console.error("Kaydetme hatası:", e);
       }
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [days, currentUser, isInitialLoad]);
+  }, [days, currentUser]);
 
-  // AI önerilerini Firestore'a kaydet (ilk yükleme hariç)
+  // AI önerilerini kaydet
   useEffect(() => {
-    if (!currentUser || isInitialLoadRef.current) return;
+    if (!currentUser) return;
 
-    // Debounce ile 500ms sonra kaydet
-    const timeoutId = setTimeout(async () => {
+    const timeoutId = setTimeout(() => {
       try {
-        // localStorage'a hemen kaydet
-        localStorage.setItem(
-          `soulfiy_${currentUser.uid}_ai`,
-          JSON.stringify(aiSuggestions)
-        );
-
-        // Firestore'a kaydet
-        await setDoc(
-          doc(db, "users", currentUser.uid),
-          {
-            aiSuggestions,
-            updatedAt: new Date().toISOString(),
-          },
-          { merge: true }
-        );
-        console.log("✅ AI önerileri kaydedildi");
-      } catch (error) {
-        console.error("❌ AI kaydetme hatası:", error);
-        // localStorage'a yedekle
-        try {
-          localStorage.setItem(
-            `soulfiy_${currentUser.uid}_ai`,
-            JSON.stringify(aiSuggestions)
-          );
-        } catch (e) {
-          console.error("localStorage hatası:", e);
-        }
+        const userAIKey = `${AI_SUGGESTIONS_KEY}_${currentUser.email}`;
+        localStorage.setItem(userAIKey, JSON.stringify(aiSuggestions));
+      } catch (e) {
+        console.error("AI kaydetme hatası:", e);
       }
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [aiSuggestions, currentUser, isInitialLoad]);
+  }, [aiSuggestions, currentUser]);
 
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -445,35 +335,47 @@ export default function App() {
       return;
     }
 
+    if (password.length < 6) {
+      alert("❌ Şifre en az 6 karakter olmalı!");
+      return;
+    }
+
     setLoading(true);
     try {
-      // Firebase Authentication ile kullanıcı oluştur
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        email,
-        password
-      );
+      // Kullanıcı zaten var mı kontrol et
+      const existingUsers = JSON.parse(localStorage.getItem(AUTH_KEY) || "{}");
+      
+      if (existingUsers[email]) {
+        alert("❌ Bu email adresi zaten kullanılıyor!");
+        return;
+      }
 
-      // Firestore'da kullanıcı belgesi oluştur
-      await setDoc(doc(db, "users", userCredential.user.uid), {
-        email: email,
+      // Şifreyi hash'le (basit - production için bcrypt kullan)
+      const hashedPassword = btoa(password); // Base64 encoding
+      
+      // Kullanıcıyı kaydet
+      existingUsers[email] = {
+        email,
+        password: hashedPassword,
         createdAt: new Date().toISOString(),
-        days: INITIAL_DATA,
-        aiSuggestions: {},
-      });
+      };
+      
+      localStorage.setItem(AUTH_KEY, JSON.stringify(existingUsers));
+
+      // Kullanıcıyı giriş yap
+      const user = { email, id: btoa(email) };
+      setCurrentUser(user);
+      setIsAuthenticated(true);
+      localStorage.setItem(USER_KEY, JSON.stringify(user));
+
+      // İlk veriyi kaydet
+      const userDataKey = `${STORAGE_KEY}_${email}`;
+      localStorage.setItem(userDataKey, JSON.stringify(INITIAL_DATA));
 
       alert("✅ Hesabınız başarıyla oluşturuldu!");
     } catch (error) {
       console.error("Kayıt hatası:", error);
-      if (error.code === "auth/email-already-in-use") {
-        alert("❌ Bu email adresi zaten kullanılıyor!");
-      } else if (error.code === "auth/weak-password") {
-        alert("❌ Şifre çok zayıf! En az 6 karakter olmalı.");
-      } else if (error.code === "auth/invalid-email") {
-        alert("❌ Geçersiz email adresi!");
-      } else {
-        alert("❌ Kayıt sırasında bir hata oluştu: " + error.message);
-      }
+      alert("❌ Kayıt sırasında bir hata oluştu!");
     } finally {
       setLoading(false);
     }
@@ -488,19 +390,61 @@ export default function App() {
 
     setLoading(true);
     try {
-      // Firebase Authentication ile giriş yap
-      await signInWithEmailAndPassword(auth, email, password);
-      // Auth state listener otomatik olarak kullanıcı verilerini yükleyecek
+      const existingUsers = JSON.parse(localStorage.getItem(AUTH_KEY) || "{}");
+      const user = existingUsers[email];
+
+      if (!user) {
+        alert("❌ Kullanıcı bulunamadı!");
+        return;
+      }
+
+      // Şifreyi kontrol et
+      const hashedPassword = btoa(password);
+      if (user.password !== hashedPassword) {
+        alert("❌ Hatalı şifre!");
+        return;
+      }
+
+      // Giriş başarılı
+      const currentUser = { email, id: btoa(email) };
+      setCurrentUser(currentUser);
+      setIsAuthenticated(true);
+      localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
+
+      // Kullanıcı verilerini yükle
+      const userDataKey = `${STORAGE_KEY}_${email}`;
+      const userAIKey = `${AI_SUGGESTIONS_KEY}_${email}`;
+
+      const savedDays = localStorage.getItem(userDataKey);
+      const savedAI = localStorage.getItem(userAIKey);
+
+      if (savedDays) {
+        setDays(JSON.parse(savedDays));
+      }
+
+      if (savedAI) {
+        setAiSuggestions(JSON.parse(savedAI));
+      }
+
+      console.log("✅ Giriş başarılı!");
     } catch (error) {
       console.error("Giriş hatası:", error);
-      if (error.code === "auth/user-not-found") {
-        alert("❌ Kullanıcı bulunamadı!");
-      } else if (error.code === "auth/wrong-password") {
-        alert("❌ Hatalı şifre!");
-      } else if (error.code === "auth/invalid-email") {
-        alert("❌ Geçersiz email adresi!");
-      } else if (error.code === "auth/invalid-credential") {
-        alert("❌ Email veya şifre hatalı!");
+      alert("❌ Giriş sırasında bir hata oluştu!");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    setIsAuthenticated(false);
+    setDays(INITIAL_DATA);
+    setAiSuggestions({});
+    setPassword("");
+    setEmail("");
+    localStorage.removeItem(USER_KEY);
+    console.log("👋 Çıkış yapıldı");
+  };
       } else {
         alert("❌ Giriş sırasında bir hata oluştu: " + error.message);
       }
@@ -600,27 +544,18 @@ export default function App() {
   };
 
   // Reset all data
-  const resetData = async () => {
+  const resetData = () => {
     if (!confirm("Tüm ilerleme ve günlükler sıfırlansın mı?")) return;
 
     setDays(INITIAL_DATA);
     setAiSuggestions({});
 
     if (currentUser) {
-      try {
-        await setDoc(
-          doc(db, "users", currentUser.uid),
-          {
-            days: INITIAL_DATA,
-            aiSuggestions: {},
-            updatedAt: new Date().toISOString(),
-          },
-          { merge: true }
-        );
-      } catch (error) {
-        console.error("Sıfırlama hatası:", error);
-        alert("❌ Veriler sıfırlanırken bir hata oluştu!");
-      }
+      const userDataKey = `${STORAGE_KEY}_${currentUser.email}`;
+      const userAIKey = `${AI_SUGGESTIONS_KEY}_${currentUser.email}`;
+      localStorage.setItem(userDataKey, JSON.stringify(INITIAL_DATA));
+      localStorage.setItem(userAIKey, JSON.stringify({}));
+      console.log("🔄 Veriler sıfırlandı");
     }
   };
 
