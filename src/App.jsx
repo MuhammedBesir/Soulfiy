@@ -344,7 +344,7 @@ export default function App() {
     try {
       // Kullanıcı zaten var mı kontrol et
       const existingUsers = JSON.parse(localStorage.getItem(AUTH_KEY) || "{}");
-      
+
       if (existingUsers[email]) {
         alert("❌ Bu email adresi zaten kullanılıyor!");
         return;
@@ -352,14 +352,14 @@ export default function App() {
 
       // Şifreyi hash'le (basit - production için bcrypt kullan)
       const hashedPassword = btoa(password); // Base64 encoding
-      
+
       // Kullanıcıyı kaydet
       existingUsers[email] = {
         email,
         password: hashedPassword,
         createdAt: new Date().toISOString(),
       };
-      
+
       localStorage.setItem(AUTH_KEY, JSON.stringify(existingUsers));
 
       // Kullanıcıyı giriş yap
@@ -444,24 +444,6 @@ export default function App() {
     setEmail("");
     localStorage.removeItem(USER_KEY);
     console.log("👋 Çıkış yapıldı");
-  };
-      } else {
-        alert("❌ Giriş sırasında bir hata oluştu: " + error.message);
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      setPassword("");
-      setEmail("");
-    } catch (error) {
-      console.error("Çıkış hatası:", error);
-      alert("❌ Çıkış yapılırken bir hata oluştu!");
-    }
   };
 
   const toggleCompleted = (id) => {
