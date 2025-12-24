@@ -263,7 +263,7 @@ export default function App() {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [darkMode, setDarkMode] = useState(() => {
     try {
-      return localStorage.getItem("soulfiy_darkMode") === "true";
+      return localStorage.getItem(DARK_MODE_KEY) === "true";
     } catch {
       return false;
     }
@@ -281,7 +281,7 @@ export default function App() {
         // Firestore'dan kullanıcı verilerini yükle (retry logic ile)
         let retries = 3;
         let success = false;
-        
+
         while (retries > 0 && !success) {
           try {
             const userDoc = await getDoc(doc(db, "users", user.uid));
@@ -304,15 +304,22 @@ export default function App() {
             // Kısa bir gecikme ile isInitialLoad'u false yap
             setTimeout(() => setIsInitialLoad(false), 100);
           } catch (error) {
-            console.error("Veri yükleme hatası (deneme kaldı: " + (retries - 1) + "):", error);
+            console.error(
+              "Veri yükleme hatası (deneme kaldı: " + (retries - 1) + "):",
+              error
+            );
             retries--;
-            
+
             if (retries === 0) {
               // Tüm denemeler başarısız - localStorage'dan yükle
-              console.warn("⚠️ Firestore'a erişilemiyor, localStorage kullanılıyor");
-              const localData = localStorage.getItem(`soulfiy_${user.uid}_days`);
+              console.warn(
+                "⚠️ Firestore'a erişilemiyor, localStorage kullanılıyor"
+              );
+              const localData = localStorage.getItem(
+                `soulfiy_${user.uid}_days`
+              );
               const localAI = localStorage.getItem(`soulfiy_${user.uid}_ai`);
-              
+
               if (localData) {
                 try {
                   setDays(JSON.parse(localData));
@@ -321,7 +328,7 @@ export default function App() {
                   console.error("localStorage parse hatası:", e);
                 }
               }
-              
+
               if (localAI) {
                 try {
                   setAiSuggestions(JSON.parse(localAI));
@@ -329,11 +336,11 @@ export default function App() {
                   console.error("localStorage AI parse hatası:", e);
                 }
               }
-              
+
               setTimeout(() => setIsInitialLoad(false), 100);
             } else {
               // 1 saniye bekle ve tekrar dene
-              await new Promise(resolve => setTimeout(resolve, 1000));
+              await new Promise((resolve) => setTimeout(resolve, 1000));
             }
           }
         }
@@ -352,7 +359,12 @@ export default function App() {
   // Days değiştiğinde Firestore'a kaydet (ilk yükleme hariç)
   useEffect(() => {
     if (!currentUser || isInitialLoad) {
-      console.log("⏸️ Kaydetme atlandı - isInitialLoad:", isInitialLoad, "currentUser:", !!currentUser);
+      console.log(
+        "⏸️ Kaydetme atlandı - isInitialLoad:",
+        isInitialLoad,
+        "currentUser:",
+        !!currentUser
+      );
       return;
     }
 
@@ -360,9 +372,12 @@ export default function App() {
     const timeoutId = setTimeout(async () => {
       try {
         // localStorage'a hemen kaydet (hızlı)
-        localStorage.setItem(`soulfiy_${currentUser.uid}_days`, JSON.stringify(days));
+        localStorage.setItem(
+          `soulfiy_${currentUser.uid}_days`,
+          JSON.stringify(days)
+        );
         console.log("💾 localStorage'a kaydedildi");
-        
+
         // Firestore'a kaydet
         await setDoc(
           doc(db, "users", currentUser.uid),
@@ -377,7 +392,10 @@ export default function App() {
         console.error("❌ Firestore kaydetme hatası:", error);
         // Hata olsa bile localStorage'a kaydet
         try {
-          localStorage.setItem(`soulfiy_${currentUser.uid}_days`, JSON.stringify(days));
+          localStorage.setItem(
+            `soulfiy_${currentUser.uid}_days`,
+            JSON.stringify(days)
+          );
           console.log("📦 Veriler localStorage'a yedeklendi");
         } catch (e) {
           console.error("localStorage hatası:", e);
@@ -396,8 +414,11 @@ export default function App() {
     const timeoutId = setTimeout(async () => {
       try {
         // localStorage'a hemen kaydet
-        localStorage.setItem(`soulfiy_${currentUser.uid}_ai`, JSON.stringify(aiSuggestions));
-        
+        localStorage.setItem(
+          `soulfiy_${currentUser.uid}_ai`,
+          JSON.stringify(aiSuggestions)
+        );
+
         // Firestore'a kaydet
         await setDoc(
           doc(db, "users", currentUser.uid),
@@ -412,7 +433,10 @@ export default function App() {
         console.error("❌ AI kaydetme hatası:", error);
         // localStorage'a yedekle
         try {
-          localStorage.setItem(`soulfiy_${currentUser.uid}_ai`, JSON.stringify(aiSuggestions));
+          localStorage.setItem(
+            `soulfiy_${currentUser.uid}_ai`,
+            JSON.stringify(aiSuggestions)
+          );
         } catch (e) {
           console.error("localStorage hatası:", e);
         }
