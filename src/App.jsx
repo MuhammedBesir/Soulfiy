@@ -301,7 +301,8 @@ export default function App() {
               console.log("✅ İlk kullanıcı verisi oluşturuldu");
             }
             success = true;
-            setIsInitialLoad(false);
+            // Kısa bir gecikme ile isInitialLoad'u false yap
+            setTimeout(() => setIsInitialLoad(false), 100);
           } catch (error) {
             console.error("Veri yükleme hatası (deneme kaldı: " + (retries - 1) + "):", error);
             retries--;
@@ -329,7 +330,7 @@ export default function App() {
                 }
               }
               
-              setIsInitialLoad(false);
+              setTimeout(() => setIsInitialLoad(false), 100);
             } else {
               // 1 saniye bekle ve tekrar dene
               await new Promise(resolve => setTimeout(resolve, 1000));
@@ -350,10 +351,18 @@ export default function App() {
 
   // Days değiştiğinde Firestore'a kaydet (ilk yükleme hariç)
   useEffect(() => {
-    if (!currentUser || isInitialLoad) return;
+    if (!currentUser || isInitialLoad) {
+      console.log("⏸️ Kaydetme atlandı - isInitialLoad:", isInitialLoad, "currentUser:", !!currentUser);
+      return;
+    }
 
-    const saveData = async () => {
+    // Debounce ile 500ms sonra kaydet (çok fazla istek önlenir)
+    const timeoutId = setTimeout(async () => {
       try {
+        // localStorage'a hemen kaydet (hızlı)
+        localStorage.setItem(`soulfiy_${currentUser.uid}_days`, JSON.stringify(days));
+        console.log("💾 localStorage'a kaydedildi");
+        
         // Firestore'a kaydet
         await setDoc(
           doc(db, "users", currentUser.uid),
@@ -364,9 +373,6 @@ export default function App() {
           { merge: true }
         );
         console.log("✅ Veriler Firestore'a kaydedildi");
-        
-        // localStorage'a da yedekle
-        localStorage.setItem(`soulfiy_${currentUser.uid}_days`, JSON.stringify(days));
       } catch (error) {
         console.error("❌ Firestore kaydetme hatası:", error);
         // Hata olsa bile localStorage'a kaydet
@@ -377,17 +383,22 @@ export default function App() {
           console.error("localStorage hatası:", e);
         }
       }
-    };
+    }, 500);
 
-    saveData();
+    return () => clearTimeout(timeoutId);
   }, [days, currentUser, isInitialLoad]);
 
   // AI önerilerini Firestore'a kaydet (ilk yükleme hariç)
   useEffect(() => {
     if (!currentUser || isInitialLoad) return;
 
-    const saveAI = async () => {
+    // Debounce ile 500ms sonra kaydet
+    const timeoutId = setTimeout(async () => {
       try {
+        // localStorage'a hemen kaydet
+        localStorage.setItem(`soulfiy_${currentUser.uid}_ai`, JSON.stringify(aiSuggestions));
+        
+        // Firestore'a kaydet
         await setDoc(
           doc(db, "users", currentUser.uid),
           {
@@ -396,9 +407,7 @@ export default function App() {
           },
           { merge: true }
         );
-        
-        // localStorage'a da yedekle
-        localStorage.setItem(`soulfiy_${currentUser.uid}_ai`, JSON.stringify(aiSuggestions));
+        console.log("✅ AI önerileri kaydedildi");
       } catch (error) {
         console.error("❌ AI kaydetme hatası:", error);
         // localStorage'a yedekle
@@ -408,9 +417,9 @@ export default function App() {
           console.error("localStorage hatası:", e);
         }
       }
-    };
+    }, 500);
 
-    saveAI();
+    return () => clearTimeout(timeoutId);
   }, [aiSuggestions, currentUser, isInitialLoad]);
 
   const handleRegister = async (e) => {
