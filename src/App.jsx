@@ -302,7 +302,6 @@ export default function App() {
               console.log("✅ İlk kullanıcı verisi oluşturuldu");
             }
             success = true;
-            setIsInitialLoad(false); // Veri yükleme tamamlandı
           } catch (error) {
             console.error(
               "Veri yükleme hatası (deneme kaldı: " + (retries - 1) + "):",
@@ -336,14 +335,16 @@ export default function App() {
                   console.error("localStorage AI parse hatası:", e);
                 }
               }
-
-              setIsInitialLoad(false); // localStorage yükleme tamamlandı
             } else {
               // 1 saniye bekle ve tekrar dene
               await new Promise((resolve) => setTimeout(resolve, 1000));
             }
           }
         }
+
+        // Her durumda (başarı veya başarısızlık) isInitialLoad'u false yap
+        setIsInitialLoad(false);
+        console.log("🔓 Kaydetme aktif edildi");
       } else {
         setCurrentUser(null);
         setIsAuthenticated(false);
