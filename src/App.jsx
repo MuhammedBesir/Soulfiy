@@ -260,7 +260,7 @@ export default function App() {
   const [aiSuggestions, setAiSuggestions] = useState({});
   const [loadingAI, setLoadingAI] = useState({});
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [isInitialLoad, setIsInitialLoad] = useState(false);
   const [darkMode, setDarkMode] = useState(() => {
     try {
       return localStorage.getItem(DARK_MODE_KEY) === "true";
@@ -275,6 +275,7 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
+        setIsInitialLoad(true); // Veri yüklenirken kaydetmeyi engelle
         setCurrentUser(user);
         setIsAuthenticated(true);
 
@@ -301,8 +302,7 @@ export default function App() {
               console.log("✅ İlk kullanıcı verisi oluşturuldu");
             }
             success = true;
-            // Kısa bir gecikme ile isInitialLoad'u false yap
-            setTimeout(() => setIsInitialLoad(false), 100);
+            setIsInitialLoad(false); // Veri yükleme tamamlandı
           } catch (error) {
             console.error(
               "Veri yükleme hatası (deneme kaldı: " + (retries - 1) + "):",
@@ -337,7 +337,7 @@ export default function App() {
                 }
               }
 
-              setTimeout(() => setIsInitialLoad(false), 100);
+              setIsInitialLoad(false); // localStorage yükleme tamamlandı
             } else {
               // 1 saniye bekle ve tekrar dene
               await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -349,7 +349,7 @@ export default function App() {
         setIsAuthenticated(false);
         setDays(INITIAL_DATA);
         setAiSuggestions({});
-        setIsInitialLoad(true);
+        setIsInitialLoad(false);
       }
     });
 
