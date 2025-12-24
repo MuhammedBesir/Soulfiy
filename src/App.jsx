@@ -283,66 +283,51 @@ export default function App() {
         setCurrentUser(user);
         setIsAuthenticated(true);
 
-        // Firestore'dan kullanıcı verilerini yükle (retry logic ile)
-        let retries = 3;
-        let success = false;
+        // Önce localStorage'dan yükle (hızlı)
+        const localData = localStorage.getItem(`soulfiy_${user.uid}_days`);
+        const localAI = localStorage.getItem(`soulfiy_${user.uid}_ai`);
 
-        while (retries > 0 && !success) {
+        if (localData) {
           try {
-            const userDoc = await getDoc(doc(db, "users", user.uid));
-            if (userDoc.exists()) {
-              const data = userDoc.data();
-              setDays(data.days || INITIAL_DATA);
-              setAiSuggestions(data.aiSuggestions || {});
-              console.log("✅ Veriler Firestore'dan yüklendi");
-            } else {
-              // İlk giriş - INITIAL_DATA'yı kaydet
-              await setDoc(doc(db, "users", user.uid), {
-                email: user.email,
-                createdAt: new Date().toISOString(),
-                days: INITIAL_DATA,
-                aiSuggestions: {},
-              });
-              console.log("✅ İlk kullanıcı verisi oluşturuldu");
-            }
-            success = true;
-          } catch (error) {
-            console.error(
-              "Veri yükleme hatası (deneme kaldı: " + (retries - 1) + "):",
-              error
-            );
-            retries--;
+            setDays(JSON.parse(localData));
+            console.log("📦 Veriler localStorage'dan yüklendi");
+          } catch (e) {
+            console.error("localStorage parse hatası:", e);
+          }
+        }
 
-            if (retries === 0) {
-              // Tüm denemeler başarısız - localStorage'dan yükle
-              console.warn(
-                "⚠️ Firestore'a erişilemiyor, localStorage kullanılıyor"
-              );
-              const localData = localStorage.getItem(
-                `soulfiy_${user.uid}_days`
-              );
-              const localAI = localStorage.getItem(`soulfiy_${user.uid}_ai`);
+        if (localAI) {
+          try {
+            setAiSuggestions(JSON.parse(localAI));
+          } catch (e) {
+            console.error("localStorage AI parse hatası:", e);
+          }
+        }
 
-              if (localData) {
-                try {
-                  setDays(JSON.parse(localData));
-                  console.log("📦 Veriler localStorage'dan yüklendi");
-                } catch (e) {
-                  console.error("localStorage parse hatası:", e);
-                }
-              }
-
-              if (localAI) {
-                try {
-                  setAiSuggestions(JSON.parse(localAI));
-                } catch (e) {
-                  console.error("localStorage AI parse hatası:", e);
-                }
-              }
-            } else {
-              // 1 saniye bekle ve tekrar dene
-              await new Promise((resolve) => setTimeout(resolve, 1000));
-            }
+        // Arka planda Firestore'dan senkronize et (offline hatalarını sessizce handle et)
+        try {
+          const userDoc = await getDoc(doc(db, "users", user.uid));
+          if (userDoc.exists()) {
+            const data = userDoc.data();
+            setDays(data.days || INITIAL_DATA);
+            setAiSuggestions(data.aiSuggestions || {});
+            console.log("✅ Veriler Firestore'dan senkronize edildi");
+          } else {
+            // İlk giriş - INITIAL_DATA'yı kaydet
+            await setDoc(doc(db, "users", user.uid), {
+              email: user.email,
+              createdAt: new Date().toISOString(),
+              days: INITIAL_DATA,
+              aiSuggestions: {},
+            });
+            console.log("✅ İlk kullanıcı verisi oluşturuldu");
+          }
+        } catch (error) {
+          // Offline veya bağlantı hatası - sessizce devam et
+          if (error.code === "unavailable") {
+            console.log("📴 Offline modda çalışılıyor");
+          } else {
+            console.warn("⚠️ Firestore senkronizasyonu başarısız:", error.message);
           }
         }
 
